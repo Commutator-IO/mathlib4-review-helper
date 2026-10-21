@@ -1,13 +1,19 @@
 /**
  * Snapshot of the author's open PRs from the GitHub REST API, into data/.
  *
- *   GITHUB_TOKEN=... node scripts/fetch.mjs
+ *   GITHUB_TOKEN=... node scripts/fetch.mjs [--author <login> ...]
+ *
+ * Without --author, every author listed in config.json is refreshed; an
+ * author given here need not be in config.json yet.
  *
  * A token is optional for a public repository but the anonymous rate limit
  * (60 requests an hour) is too low for more than a handful of PRs: each PR
  * costs six requests. In GitHub Actions the workflow's GITHUB_TOKEN is enough.
  */
-import { config, writeSnapshot } from './lib.mjs';
+import { parseArgs } from 'node:util';
+import { authorsFrom, config, writeSnapshot } from './lib.mjs';
+
+const { values: args } = parseArgs({ options: { author: { type: 'string', multiple: true } } });
 
 const API = 'https://api.github.com';
 const headers = {
@@ -73,55 +79,60 @@ function summariseChecks(runs) {
 }
 
 const [owner, repo] = config.repo.split('/');
-const found = await all(
-  `/search/issues?q=${encodeURIComponent(`repo:${config.repo} is:pr is:open author:${config.author}`)}`,
-);
-console.log(`${found.length} open PRs by ${config.author} on ${config.repo}`);
 
-const prs = await pool(found, 4, async ({ number }) => {
-  const base = `/repos/${owner}/${repo}`;
-  const pr = await get(`${base}/pulls/${number}`);
-  const [files, reviews, comments, reviewComments, checks] = await Promise.all([
-    all(`${base}/pulls/${number}/files`),
-    all(`${base}/pulls/${number}/reviews`),
-    all(`${base}/issues/${number}/comments`),
-    all(`${base}/pulls/${number}/comments`),
-    all(`${base}/commits/${pr.head.sha}/check-runs`),
-  ]);
-  return {
-    number,
-    title: pr.title,
-    url: pr.html_url,
-    author: pr.user.login,
-    draft: pr.draft,
-    labels: pr.labels.map((l) => l.name),
-    body: pr.body ?? '',
-    head_sha: pr.head.sha,
-    base_sha: pr.base.sha,
-    created_at: pr.created_at,
-    updated_at: pr.updated_at,
-    commits: pr.commits,
-    mergeable_state: pr.mergeable_state,
-    files: files.map((f) => ({
-      filename: f.filename,
-      status: f.status,
-      additions: f.additions,
-      deletions: f.deletions,
-      patch: f.patch ?? '',
-    })),
-    reviews: reviews
-      .filter((r) => r.state !== 'PENDING')
-      .map((r) => ({ ...comment(r), state: r.state, created_at: r.submitted_at })),
-    comments: comments.map(comment),
-    review_comments: reviewComments.map((c) => ({
-      ...comment(c),
-      path: c.path,
-      line: c.line ?? c.original_line,
-      outdated: c.line == null,
-      in_reply_to: c.in_reply_to_id ?? null,
-    })),
-    checks: summariseChecks(checks),
-  };
-});
+async function snapshot(author) {
+  const found = await all(
+    `/search/issues?q=${encodeURIComponent(`repo:${config.repo} is:pr is:open author:${author}`)}`,
+  );
+  console.log(`${found.length} open PRs by ${author} on ${config.repo}`);
 
-writeSnapshot(prs, 'api');
+  const prs = await pool(found, 4, async ({ number }) => {
+    const base = `/repos/${owner}/${repo}`;
+    const pr = await get(`${base}/pulls/${number}`);
+    const [files, reviews, comments, reviewComments, checks] = await Promise.all([
+      all(`${base}/pulls/${number}/files`),
+      all(`${base}/pulls/${number}/reviews`),
+      all(`${base}/issues/${number}/comments`),
+      all(`${base}/pulls/${number}/comments`),
+      all(`${base}/commits/${pr.head.sha}/check-runs`),
+    ]);
+    return {
+      number,
+      title: pr.title,
+      url: pr.html_url,
+      author: pr.user.login,
+      draft: pr.draft,
+      labels: pr.labels.map((l) => l.name),
+      body: pr.body ?? '',
+      head_sha: pr.head.sha,
+      base_sha: pr.base.sha,
+      created_at: pr.created_at,
+      updated_at: pr.updated_at,
+      commits: pr.commits,
+      mergeable_state: pr.mergeable_state,
+      files: files.map((f) => ({
+        filename: f.filename,
+        status: f.status,
+        additions: f.additions,
+        deletions: f.deletions,
+        patch: f.patch ?? '',
+      })),
+      reviews: reviews
+        .filter((r) => r.state !== 'PENDING')
+        .map((r) => ({ ...comment(r), state: r.state, created_at: r.submitted_at })),
+      comments: comments.map(comment),
+      review_comments: reviewComments.map((c) => ({
+        ...comment(c),
+        path: c.path,
+        line: c.line ?? c.original_line,
+        outdated: c.line == null,
+        in_reply_to: c.in_reply_to_id ?? null,
+      })),
+      checks: summariseChecks(checks),
+    };
+  });
+
+  writeSnapshot(prs, 'api', author);
+}
+
+for (const author of authorsFrom(args.author)) await snapshot(author);

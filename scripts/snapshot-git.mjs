@@ -2,7 +2,7 @@
  * Offline snapshot of the PRs, from a local mathlib4 clone instead of the
  * GitHub API. Useful where the API is not reachable (no token, a sandbox).
  *
- *   node scripts/snapshot-git.mjs --mathlib ../mathlib4 --meta meta.tsv
+ *   node scripts/snapshot-git.mjs --author <login> --mathlib ../mathlib4 --meta meta.tsv
  *
  * The clone must have the PR heads fetched as refs/remotes/pr/<number>:
  *
@@ -16,20 +16,22 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
-import { config, writeSnapshot } from './lib.mjs';
+import { checkLogin, config, writeSnapshot } from './lib.mjs';
 
 const { values: args } = parseArgs({
   options: {
+    author: { type: 'string', default: config.authors[0] },
     mathlib: { type: 'string' },
     meta: { type: 'string' },
     base: { type: 'string', default: 'origin/master' },
   },
 });
 if (!args.mathlib || !args.meta) {
-  console.error('usage: snapshot-git.mjs --mathlib <clone> --meta <meta.tsv>');
+  console.error('usage: snapshot-git.mjs --author <login> --mathlib <clone> --meta <meta.tsv>');
   process.exit(2);
 }
 
+const author = checkLogin(args.author);
 const git = (...a) =>
   execFileSync('git', ['-C', args.mathlib, ...a], { encoding: 'utf8', maxBuffer: 64 << 20 }).trimEnd();
 
@@ -66,7 +68,7 @@ const prs = meta.map(({ number, title, labels }) => {
     number,
     title,
     url: `https://github.com/${config.repo}/pull/${number}`,
-    author: config.author,
+    author,
     draft: null,
     labels,
     body: '',
@@ -83,4 +85,4 @@ const prs = meta.map(({ number, title, labels }) => {
   };
 });
 
-writeSnapshot(prs, 'git');
+writeSnapshot(prs, 'git', author);

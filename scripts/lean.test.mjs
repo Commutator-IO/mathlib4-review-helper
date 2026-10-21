@@ -86,3 +86,10 @@ test('parseNotes keeps same-named sections in order', () => {
   assert.equal(n['stacked-on'], '1');
   assert.deepEqual(n.decls.get('a'), ['first', 'second']);
 });
+
+test('checkLogin accepts GitHub logins and nothing that could leave data/', async () => {
+  const { checkLogin } = await import('./lib.mjs');
+  assert.equal(checkLogin('mycaule'), 'mycaule');
+  assert.equal(checkLogin('a-b-1'), 'a-b-1');
+  for (const bad of ['../x', 'a/b', '', '-lead', 'x'.repeat(40), undefined]) assert.throws(() => checkLogin(bad));
+});

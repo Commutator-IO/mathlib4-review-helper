@@ -1,20 +1,22 @@
 /**
- * Build the site into dist/ from data/ (the PR snapshot) and notes/ (the
- * plain-language transcriptions).
+ * Build the site into dist/ from data/<author>/ (the PR snapshots) and
+ * notes/ (the plain-language transcriptions), for every author in config.json.
  *
- *   index.html        the queue: PRs sorted into GTD lists
- *   pr/<number>.html  one review page per PR: Lean code beside its transcription
+ *   index.html                 the list of queues, one per author
+ *   <author>/index.html        the queue: that author's PRs sorted into GTD lists
+ *   <author>/pr/<number>.html  one review page per PR: Lean code beside its transcription
  */
 import { createHash } from 'node:crypto';
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { DATA, ROOT, config } from './lib.mjs';
-import { declHead, docstring, esc, fileHints, highlightLines, hints, parsePatch, segment } from './lean.mjs';
-import { inline, markdown, parseNotes } from './markdown.mjs';
+import { ALMOST, BUCKETS, TOPIC, analyse, verdicts } from './analyse.mjs';
+import { ROOT, authorsFrom, config, readSnapshot } from './lib.mjs';
+import { docstring, esc, highlightLines } from './lean.mjs';
+import { inline, markdown } from './markdown.mjs';
 
 const DIST = join(ROOT, 'dist');
-const index = JSON.parse(readFileSync(join(DATA, 'index.json'), 'utf8'));
-const prs = index.numbers.map((n) => JSON.parse(readFileSync(join(DATA, 'prs', `${n}.json`), 'utf8')));
+// The author whose pages are being written: { author, index }.
+let site = null;
 const ctx = { repo: config.repo };
 const short = (sha) => sha?.slice(0, 7) ?? '';
 const blob = (pr, path, a, b) => `https://github.com/${config.repo}/blob/${pr.head_sha}/${path}#L${a}${b && b !== a ? `-L${b}` : ''}`;
@@ -23,108 +25,8 @@ const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 
 function ago(iso) {
   if (!iso) return '';
-  const d = (Date.parse(index.fetched_at) - Date.parse(iso)) / 864e5;
+  const d = (Date.parse(site.index.fetched_at) - Date.parse(iso)) / 864e5;
   return d < 1 ? 'today' : d < 2 ? 'yesterday' : `${Math.floor(d)} days ago`;
-}
-
-// ---------------------------------------------------------------------------
-// What each PR needs next
-
-const TOPIC = /^t-/;
-const ALMOST = ['ready-to-merge', 'maintainer-merge', 'delegated', 'auto-merge-after-CI', 'bors'];
-
-/** Latest review state per reviewer (comments do not override a verdict). */
-function verdicts(pr) {
-  const by = new Map();
-  for (const r of pr.reviews ?? []) {
-    if (r.author === pr.author) continue;
-    if (r.state === 'COMMENTED' && by.has(r.author)) continue;
-    by.set(r.author, r.state);
-  }
-  return by;
-}
-
-function bucket(pr) {
-  const v = [...verdicts(pr).values()];
-  const why = [];
-  if (pr.labels.includes('blocked-by-other-PR')) return { id: 'blocked', why: ['blocked by another PR'] };
-  if (pr.draft) why.push('draft');
-  if (pr.labels.includes('awaiting-author')) why.push('awaiting-author');
-  if (v.includes('CHANGES_REQUESTED')) why.push('changes requested');
-  if (pr.checks?.state === 'failure') why.push('CI failing');
-  if (pr.mergeable_state === 'dirty') why.push('merge conflict');
-  if (why.length) return { id: 'author', why };
-  if (pr.labels.some((l) => ALMOST.includes(l))) return { id: 'almost', why: pr.labels.filter((l) => ALMOST.includes(l)) };
-  return { id: 'ready', why: [] };
-}
-
-const BUCKETS = [
-  { id: 'ready', title: 'Next actions: ready for review', blurb: 'Open, not draft, nothing pending on the author. Smallest first: each one is a short session.' },
-  { id: 'almost', title: 'Almost there', blurb: 'A maintainer has delegated or marked them for merge.' },
-  { id: 'author', title: 'Waiting for the author', blurb: 'Draft, CI red, changes requested or a merge conflict. Nothing to review until it moves.' },
-  { id: 'blocked', title: 'Waiting for another PR', blurb: 'Stacked on a PR that has to land first.' },
-];
-
-// ---------------------------------------------------------------------------
-// One PR, analysed
-
-function analyse(pr) {
-  const notesPath = join(ROOT, 'notes', `${pr.number}.md`);
-  const notes = existsSync(notesPath) ? parseNotes(readFileSync(notesPath, 'utf8')) : null;
-  // A stacked PR (`stacked-on: <number>` in its notes) reuses the notes of the PR below it.
-  const below = notes?.['stacked-on'] && join(ROOT, 'notes', `${notes['stacked-on']}.md`);
-  if (below && existsSync(below)) {
-    for (const [k, v] of parseNotes(readFileSync(below, 'utf8')).decls) if (!notes.decls.has(k)) notes.decls.set(k, v);
-  }
-  // Sections are consumed in order, so same-named declarations get their own.
-  const taken = new Map();
-  const take = (k) => {
-    const i = taken.get(k) ?? 0;
-    const list = notes.decls.get(k);
-    if (i >= list.length) return null;
-    taken.set(k, i + 1);
-    return list[i];
-  };
-  const noteFor = (name) => {
-    if (!notes || !name) return null;
-    const bare = (n) => n.replace(/^_root_\./, '');
-    const last = (n) => bare(n).split('.').at(-1);
-    for (const match of [(k) => k === name, (k) => bare(k) === bare(name), (k) => last(k) === last(name)]) {
-      for (const k of notes.decls.keys()) {
-        if (!match(k)) continue;
-        const v = take(k);
-        if (v) return v;
-      }
-    }
-    return null;
-  };
-  const files = pr.files.map((file) => {
-    const hunks = parsePatch(file.patch).map((h) => ({
-      ...h,
-      segs: segment(h.lines, h.header).map((sg) => {
-        const changed = sg.lines.some((l) => l.k !== ' ' && l.s.trim() !== '');
-        const key = `${file.filename}::${sg.name || sg.kind}@${sg.lines.find((l) => l.new)?.new ?? 0}`;
-        return { ...sg, changed, key, hints: hints(sg, file), note: sg.kind === 'other' ? null : noteFor(sg.name) };
-      }),
-    }));
-    return { ...file, hunks, fileHints: fileHints(file, hunks) };
-  });
-  const decls = files.flatMap((f) => f.hunks.flatMap((h) => h.segs.filter((s) => s.kind !== 'other' && s.changed)));
-  const unmatched = notes ? [...notes.decls].filter(([k, v]) => (taken.get(k) ?? 0) < v.length).map(([k]) => k) : [];
-  const hintCount = files.reduce((n, f) => n + f.fileHints.length + f.hunks.reduce((m, h) => m + h.segs.reduce((k, s) => k + s.hints.length, 0), 0), 0);
-  return {
-    pr,
-    notes,
-    files,
-    decls,
-    unmatched,
-    hintCount,
-    covered: decls.filter((d) => d.note).length,
-    stale: notes?.head && notes.head !== pr.head_sha,
-    bucket: bucket(pr),
-    additions: pr.files.reduce((n, f) => n + f.additions, 0),
-    deletions: pr.files.reduce((n, f) => n + f.deletions, 0),
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -143,9 +45,9 @@ function page({ title, body, depth = 0, cls = '', script = '' }) {
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>∀</text></svg>">
 </head>
 <body class="${cls}">
-<header class="top"><a class="brand" href="${up}index.html">${esc(config.siteTitle)}</a><span class="who">open PRs by <a href="https://github.com/${config.repo}/pulls?q=is%3Apr+is%3Aopen+author%3A${config.author}">@${esc(config.author)}</a> on ${esc(config.repo)}</span><button class="theme" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">◐</button></header>
+<header class="top"><a class="brand" href="${up}index.html">${esc(config.siteTitle)}</a><span class="who">${site ? `open PRs by <a href="https://github.com/${config.repo}/pulls?q=is%3Apr+is%3Aopen+author%3A${site.author}">@${esc(site.author)}</a> on ` : ''}${esc(config.repo)}</span><button class="theme" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">◐</button></header>
 ${body}
-<footer class="foot">Snapshot ${esc(index.fetched_at.slice(0, 16).replace('T', ' '))} UTC from ${index.source === 'api' ? 'the GitHub API' : 'git (no reviews, CI or draft state)'} · <a href="${up}about.html">About</a> · <a href="https://github.com/${config.issuesRepo}">Source</a></footer>
+<footer class="foot">${site ? `Snapshot ${esc(site.index.fetched_at.slice(0, 16).replace('T', ' '))} UTC from ${site.index.source === 'api' ? 'the GitHub API' : 'git (no reviews, CI or draft state)'} · ` : ''}<a href="${up}about.html">About</a> · <a href="https://github.com/${config.issuesRepo}">Source</a></footer>
 <script src="${up}app.js"></script>
 ${script}
 </body>
@@ -203,7 +105,8 @@ function indexPage(all) {
   const totalDecls = all.reduce((n, a) => n + a.decls.length, 0);
   const body = `<main class="queue" data-repo="${config.repo}">
 <section class="intro">
-  <h1>Review queue</h1>
+  <p class="crumbs"><a href="../index.html">← all queues</a></p>
+  <h1>Review queue of <a href="https://github.com/${site.author}">@${esc(site.author)}</a></h1>
   <p>${plural(all.length, 'open PR')}, ${totalAdd} added lines, ${plural(totalDecls, 'declaration')}. Each review page puts the Lean code of every declaration beside a plain-language transcription of what it states and how it is proved, flags style points a bot can see, and lets you mark each declaration, comment on a selection of code and export the lot as one Markdown review to paste on GitHub. Your marks stay in this browser.</p>
   <div class="filters">
     <input type="search" id="q" placeholder="Filter by title or number" aria-label="Filter">
@@ -213,7 +116,7 @@ function indexPage(all) {
 </section>
 ${lists}
 </main>`;
-  return page({ title: `Review queue · ${config.siteTitle}`, body, script: '<script src="queue.js"></script>' });
+  return page({ title: `@${site.author} · Review queue · ${config.siteTitle}`, body, depth: 1, script: '<script src="../queue.js"></script>' });
 }
 
 function codeLines(pr, file, sg, threads) {
@@ -350,13 +253,13 @@ ${files}
     <div class="row"><button type="button" class="copy">Copy</button><a class="open-pr" target="_blank" rel="noopener">Open the PR</a><a class="open-issue" target="_blank" rel="noopener">File as an issue in ${esc(config.issuesRepo)}</a><button value="close">Close</button></div>
   </form>
 </dialog>`;
-  return page({ title: `#${pr.number} ${pr.title} · ${config.siteTitle}`, body, depth: 1, cls: 'review-page', script: '<script src="../review.js"></script>' });
+  return page({ title: `#${pr.number} ${pr.title} · ${config.siteTitle}`, body, depth: 2, cls: 'review-page', script: '<script src="../../review.js"></script>' });
 }
 
 function aboutPage() {
   const body = `<main class="prose">
 <h1>About</h1>
-<p>This site is a companion for reviewing the open mathlib4 pull requests of <a href="https://github.com/${config.author}">@${esc(config.author)}</a>. It follows <a href="${config.context}">this comment</a>: much of the review feedback so far has been about style, which a tool can point out, and a plain-language version beside the Lean code can let a maintainer check a statement faster.</p>
+<p>This site is a companion for reviewing open pull requests on ${esc(config.repo)}, one queue per author. It started with the PRs of @mycaule and follows <a href="${config.context}">this comment</a>: much of the review feedback so far has been about style, which a tool can point out, and a plain-language version beside the Lean code can let a maintainer check a statement faster.</p>
 <h2>What each review page shows</h2>
 <ul>
 <li><strong>Declarations beside their meaning.</strong> The diff is cut into declarations. Each one gets its Lean code on the left and, on the right, a transcription of the statement in ordinary mathematical language, the proof strategy, and sometimes a point to check. The transcriptions live in <code>notes/&lt;number&gt;.md</code>. They are drafted with an LLM from the diff, so they are a reading aid and can be wrong: the Lean code is the reference.</li>
@@ -365,7 +268,7 @@ function aboutPage() {
 <li><strong>A batch review.</strong> Mark each declaration as looks right, question or needs change, add a note, or select some code and comment on it. The export turns it all into one Markdown comment with links to the exact lines. Everything stays in your browser (localStorage) until you paste it.</li>
 </ul>
 <h2>The queue</h2>
-<p>The home page sorts the PRs the <a href="https://en.wikipedia.org/wiki/Getting_Things_Done">Getting Things Done</a> way: next actions (ready for review, smallest first), almost there, waiting for the author (draft, CI, requested changes, conflicts), waiting for another PR. Draft state, reviews and CI come from the GitHub API snapshot, refreshed by a scheduled workflow.</p>
+<p>Each author's queue sorts the PRs the <a href="https://en.wikipedia.org/wiki/Getting_Things_Done">Getting Things Done</a> way: next actions (ready for review, smallest first), almost there, waiting for the author (draft, CI, requested changes, conflicts), waiting for another PR. Draft state, reviews and CI come from the GitHub API snapshot, refreshed by a scheduled workflow.</p>
 <h2>Source</h2>
 <p><a href="https://github.com/${config.issuesRepo}">${esc(config.issuesRepo)}</a>. The same approach could carry over to the <a href="https://github.com/leanprover-community/queueboard-core">queueboard</a>.</p>
 </main>`;
@@ -374,12 +277,43 @@ function aboutPage() {
 
 // ---------------------------------------------------------------------------
 
-const all = prs.map(analyse);
+function rootPage(queues) {
+  const rows = queues
+    .map(({ author, index, all }) => {
+      const ready = all.filter((a) => a.bucket.id === 'ready').length;
+      const lines = all.reduce((n, a) => n + a.additions, 0);
+      return `<li class="card"><a class="card-link" href="${author}/index.html"><span class="title">@${esc(author)}</span></a><div class="meta"><span>${plural(all.length, 'open PR')}</span><span>${ready} ready for review</span><span>${lines} added lines</span><span>${all.reduce((n, a) => n + a.covered, 0)}/${all.reduce((n, a) => n + a.decls.length, 0)} declarations transcribed</span><span class="when">snapshot ${esc(index.fetched_at.slice(0, 10))}</span></div></li>`;
+    })
+    .join('\n');
+  const body = `<main class="queue">
+<section class="intro">
+  <h1>Review queues</h1>
+  <p>Open pull requests on <a href="https://github.com/${config.repo}">${esc(config.repo)}</a>, one queue per author. Each review page puts the Lean code of every declaration beside a plain-language transcription, flags style points a bot can see, and turns your marks and comments into one Markdown review.</p>
+</section>
+<ol class="cards authors">${rows}</ol>
+</main>`;
+  return page({ title: config.siteTitle, body });
+}
+
 rmSync(DIST, { recursive: true, force: true });
-mkdirSync(join(DIST, 'pr'), { recursive: true });
-writeFileSync(join(DIST, 'index.html'), indexPage(all));
+mkdirSync(DIST, { recursive: true });
+const queues = [];
+for (const author of authorsFrom()) {
+  const snap = readSnapshot(author);
+  if (!snap) {
+    console.log(`@${author}: no snapshot in data/${author}/ (run npm run fetch -- --author ${author})`);
+    continue;
+  }
+  site = { author, index: snap.index };
+  const all = snap.prs.map(analyse);
+  mkdirSync(join(DIST, author, 'pr'), { recursive: true });
+  writeFileSync(join(DIST, author, 'index.html'), indexPage(all));
+  for (const a of all) writeFileSync(join(DIST, author, 'pr', `${a.pr.number}.html`), prPage(a));
+  queues.push({ author, index: snap.index, all });
+}
+site = null;
+writeFileSync(join(DIST, 'index.html'), rootPage(queues));
 writeFileSync(join(DIST, 'about.html'), aboutPage());
-for (const a of all) writeFileSync(join(DIST, 'pr', `${a.pr.number}.html`), prPage(a));
 for (const f of readdirSync(join(ROOT, 'src'))) cpSync(join(ROOT, 'src', f), join(DIST, f));
 const katex = join(ROOT, 'node_modules', 'katex', 'dist');
 mkdirSync(join(DIST, 'vendor', 'katex', 'fonts'), { recursive: true });
@@ -391,8 +325,10 @@ writeFileSync(join(DIST, '.nojekyll'), '');
 
 // Report what the notes do not cover, so a stale or mistyped heading shows up.
 let warned = 0;
-for (const a of all) {
-  const missing = a.decls.filter((d) => !d.note).map((d) => d.name || `(anonymous ${d.kind})`);
+const every = queues.flatMap((q) => q.all);
+for (const a of every) {
+  // Anonymous instances are optional: an `## instance` section covers them, in order.
+  const missing = a.decls.filter((d) => !d.note && d.name).map((d) => d.name);
   if (!a.notes) console.log(`#${a.pr.number}: no notes/${a.pr.number}.md`), warned++;
   else {
     if (a.stale) console.log(`#${a.pr.number}: notes written for ${short(a.notes.head)}, PR at ${short(a.pr.head_sha)}`), warned++;
@@ -400,4 +336,4 @@ for (const a of all) {
     if (a.unmatched.length) console.log(`#${a.pr.number}: notes for unknown declarations ${a.unmatched.join(', ')}`), warned++;
   }
 }
-console.log(`dist/: ${all.length} PR pages, ${all.reduce((n, a) => n + a.decls.length, 0)} declarations${warned ? `, ${warned} note warnings above` : ''}`);
+console.log(`dist/: ${plural(queues.length, 'queue')}, ${every.length} PR pages, ${every.reduce((n, a) => n + a.decls.length, 0)} declarations${warned ? `, ${warned} note warnings above (npm run notes-todo for details)` : ''}`);

@@ -207,3 +207,4 @@ dialog .row button[value='close'] { margin-left: auto; }
 .card-link .title, .file > h2, .pr-head h1, .toc code, .note code, .tc { min-width: 0; overflow-wrap: anywhere; }
 .decl > * { min-width: 0; }
 @media (max-width: 600px) { .who { display: none; } .top { position: static; } .decl-side { position: static; } }
+.cards.authors .meta { margin-left: 0; }
