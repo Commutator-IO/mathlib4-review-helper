@@ -63,6 +63,7 @@ export function analyse(pr) {
     for (const [k, v] of below.decls) if (k !== '*' && !notes.decls.has(k)) notes.decls.set(k, v);
     for (const m of (below['stacked-on'] ?? '').split(/[\s,]+/).filter(Boolean)) borrow(m, seen);
   };
+  const ownKeys = new Set(notes?.decls.keys() ?? []);
   if (notes?.['stacked-on']) {
     const seen = new Set([String(pr.number)]);
     for (const m of notes['stacked-on'].split(/[\s,]+/).filter(Boolean)) borrow(m, seen);
@@ -91,12 +92,18 @@ export function analyse(pr) {
     return null;
   };
   const files = pr.files.map((file) => {
+    const seen = new Set();
     const hunks = parsePatch(file.patch).map((h) => ({
       ...h,
       segs: segment(h.lines, h.header).map((sg) => {
+        // A hunk starting inside a declaration already shown above (the hunk header names
+        // it) is the rest of that declaration: plain code, not a second card.
         const changed = sg.lines.some((l) => l.k !== ' ' && l.s.trim() !== '');
+        if (sg.partial && seen.has(sg.name)) sg = { ...sg, kind: 'other', partial: false, continued: true };
+        if (sg.kind !== 'other' && changed) seen.add(sg.name);
         const key = `${file.filename}::${sg.name || sg.kind}@${sg.lines.find((l) => l.new)?.new ?? 0}`;
-        const own = sg.kind === 'other' ? null : noteFor(sg.name || (sg.kind === 'instance' ? 'instance' : ''));
+        // Unchanged declarations (context around a hunk) get no card, so they take no section.
+        const own = sg.kind === 'other' || !changed ? null : noteFor(sg.name || (sg.kind === 'instance' ? 'instance' : ''));
         // `## *` describes, once, the change shared by every declaration without its own section
         // (a rename, a generalisation across a refactor).
         const shared = !own && sg.kind !== 'other' && changed ? notes?.decls.get('*')?.[0] ?? null : null;
@@ -106,7 +113,8 @@ export function analyse(pr) {
     return { ...file, hunks, fileHints: fileHints(file, hunks) };
   });
   const decls = files.flatMap((f) => f.hunks.flatMap((h) => h.segs.filter((s) => s.kind !== 'other' && s.changed)));
-  const unmatched = notes ? [...notes.decls].filter(([k, v]) => k !== '*' && (taken.get(k) ?? 0) < v.length).map(([k]) => k) : [];
+  // Only this PR's own sections can be unmatched: borrowed ones cover what they can.
+  const unmatched = notes ? [...notes.decls].filter(([k, v]) => k !== '*' && ownKeys.has(k) && (taken.get(k) ?? 0) < v.length).map(([k]) => k) : [];
   const hintCount = files.reduce((n, f) => n + f.fileHints.length + f.hunks.reduce((m, h) => m + h.segs.reduce((k, s) => k + s.hints.length, 0), 0), 0);
   return {
     pr,

@@ -194,8 +194,31 @@ export function segment(lines, header = '') {
     cur = { start, end: lines.length, kind, name };
     segs.push(cur);
   };
+  // Lines that start inside a block comment (commented-out code, a module docstring) are
+  // never declarations or commands. Each side of the diff is read on its own: a rewritten
+  // docstring would otherwise open twice and never close.
+  const scan = (side) => {
+    const idx = lines.map((_, i) => i).filter((i) => lines[i].k !== side);
+    const ends = new Set();
+    let at = 0;
+    for (const { t, s } of tokenize(idx.map((i) => lines[i].s).join('\n'))) {
+      if (t === 'com' || t === 'doc') for (let j = s.indexOf('\n'); j >= 0; j = s.indexOf('\n', j + 1)) ends.add(at + j + 1);
+      at += s.length;
+    }
+    const out = new Set();
+    let offset = 0;
+    for (const i of idx) {
+      if (ends.has(offset)) out.add(i);
+      offset += lines[i].s.length + 1;
+    }
+    return out;
+  };
+  const insideNew = scan('-');
+  const insideOld = scan('+');
+  const startsInside = { has: (i) => (lines[i].k === '-' ? insideOld : insideNew).has(i) };
   lines.forEach((l, i) => {
     const s = l.s;
+    if (startsInside.has(i) && !inDoc) return;
     if (inDoc) {
       if (s.includes('-/')) inDoc = false;
       return;

@@ -98,3 +98,9 @@ test('checkLogin accepts GitHub logins and nothing that could leave data/', asyn
   assert.equal(checkLogin('a-b-1'), 'a-b-1');
   for (const bad of ['../x', 'a/b', '', '-lead', 'x'.repeat(40), undefined]) assert.throws(() => checkLogin(bad));
 });
+
+test('declarations inside a block comment are not declarations', () => {
+  const [h] = parsePatch('@@ -1,0 +1,6 @@\n+/- draft:\n+theorem dead : False := sorry\n+-/\n+/-! # Doc\n+lemma alsoDead : True -/\n+theorem alive : True := trivial\n');
+  const decls = segment(h.lines).filter((s) => s.kind !== 'other').map((s) => s.name);
+  assert.deepEqual(decls, ['alive']);
+});
