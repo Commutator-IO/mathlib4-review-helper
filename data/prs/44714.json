@@ -1,0 +1,29 @@
+{
+ "number": 44714,
+ "title": "feat(RingTheory/Flat/Basic): products of flat modules are flat",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/44714",
+ "author": "mycaule",
+ "draft": null,
+ "labels": [
+  "t-ring-theory"
+ ],
+ "body": "",
+ "head_sha": "8a91d52d4c0f1447c2afd91f8fd0f8630afcf927",
+ "base_sha": "113454bc32fc15317f9e88d2fe1dca45367cdf9f",
+ "created_at": null,
+ "updated_at": "2026-10-15T21:39:51+02:00",
+ "commits": 6,
+ "files": [
+  {
+   "filename": "Mathlib/RingTheory/Flat/Basic.lean",
+   "status": "modified",
+   "additions": 26,
+   "deletions": 0,
+   "patch": "@@ -13,6 +13,7 @@ public import Mathlib.RingTheory.Finiteness.Small\n public import Mathlib.RingTheory.IsTensorProduct\n public import Mathlib.RingTheory.TensorProduct.Finite\n \n+import Mathlib.LinearAlgebra.TensorProduct.Prod\n import Mathlib.RingTheory.Nilpotent.Defs\n \n /-!\n@@ -43,6 +44,8 @@ the current `Module.Flat` to `Module.MonoFlat`.\n * `Module.Flat.of_retract`: retracts of flat modules are flat\n * `Module.Flat.of_linearEquiv`: modules linearly equivalent to a flat module are flat\n * `Module.Flat.directSum`: arbitrary direct sums of flat modules are flat\n+* `Module.Flat.prod`, `Module.Flat.pi`: binary products and finite products of flat modules\n+  are flat\n * `Module.Flat.of_free`: free modules are flat\n * `Module.Flat.of_projective`: projective modules are flat\n * `Module.Flat.preserves_injective_linearMap`: If `M` is a flat module then tensoring with `M`\n@@ -219,8 +222,31 @@ instance directSum [∀ i, Flat R (M i)] : Flat R (⨁ i, M i) := directSum_iff.\n \n instance dfinsupp [∀ i, Flat R (M i)] : Flat R (Π₀ i, M i) := dfinsupp_iff.mpr ‹_›\n \n+theorem pi_iff [Finite ι] : Flat R (Π i, M i) ↔ ∀ i, Flat R (M i) := by\n+  classical\n+  have := Fintype.ofFinite ι\n+  rw [← directSum_iff]\n+  exact equiv_iff (linearEquivFunOnFintype R ι M).symm\n+\n+/-- A finite product of flat `R`-modules is flat. -/\n+instance pi [Finite ι] [∀ i, Flat R (M i)] : Flat R (Π i, M i) := pi_iff.mpr ‹_›\n+\n end DirectSum\n \n+theorem prod_iff : Flat R (M × N) ↔ Flat R M ∧ Flat R N := by\n+  have key {P : Type u} [AddCommMonoid P] [Module R P] (Q : Submodule R P) :\n+      Function.Injective (Q.subtype.rTensor (M × N)) ↔\n+        Function.Injective (Q.subtype.rTensor M) ∧ Function.Injective (Q.subtype.rTensor N) := by\n+    have : (prodRight R R P M N).toLinearMap ∘ₗ Q.subtype.rTensor (M × N) =\n+        (Q.subtype.rTensor M).prodMap (Q.subtype.rTensor N) ∘ₗ\n+          (prodRight R R Q M N).toLinearMap := by\n+      ext <;> simp\n+    simpa [coe_prodMap, Prod.map_injective] using congr(Function.Injective ⇑$this)\n+  simp_rw [iff_rTensor_injectiveₛ, key, forall_and]\n+\n+/-- The product of two flat `R`-modules is flat. -/\n+instance prod [Flat R M] [Flat R N] : Flat R (M × N) := prod_iff.mpr ⟨‹_›, ‹_›⟩\n+\n /-- Free `R`-modules over discrete types are flat. -/\n instance finsupp (ι : Type v) : Flat R (ι →₀ R) := by\n   classical exact of_linearEquiv (finsuppLEquivDirectSum R R ι)"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_threads": null,
+ "checks": null
+}

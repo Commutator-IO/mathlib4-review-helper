@@ -1,0 +1,36 @@
+{
+ "number": 44734,
+ "title": "feat(RingTheory/LocalProperties/Semilocal): semilocal rings have stable range one",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/44734",
+ "author": "mycaule",
+ "draft": null,
+ "labels": [
+  "t-ring-theory"
+ ],
+ "body": "",
+ "head_sha": "1bda1c60e858a51c8f836cbad340b9de851e58d2",
+ "base_sha": "2da3ab0a20dc0c66f56a557e37df39f7d36cb953",
+ "created_at": null,
+ "updated_at": "2026-10-12T08:33:24+02:00",
+ "commits": 2,
+ "files": [
+  {
+   "filename": "Mathlib/RingTheory/LocalProperties/Semilocal.lean",
+   "status": "modified",
+   "additions": 32,
+   "deletions": 0,
+   "patch": "@@ -23,6 +23,7 @@ finitely many maximal ideals).\n   localization at every maximal ideal is a Noetherian ring.\n * `isPrincipalIdealRing_of_isPrincipalIdealRing_isLocalization_maximal`: A semilocal\n   integral domain `A` is a PID if its localization at every maximal ideal is a PID.\n+* `IsCoprime.exists_isUnit_add_mul`: A semilocal ring has stable range one.\n -/\n \n public section\n@@ -137,4 +138,35 @@ theorem isPrincipalIdealRing_of_isPrincipalIdealRing_isLocalization_maximal [IsD\n \n end IsLocalization\n \n+variable {R : Type*} [CommRing R] [Finite (MaximalSpectrum R)]\n+\n+/-- A semilocal ring has stable range one: if `a` and `b` are coprime, then `a + t * b` is a\n+unit for some `t`. This is due to Bass, see [Bass, *K-theory and stable algebra*][bass1964]. -/\n+theorem IsCoprime.exists_isUnit_add_mul {a b : R} (h : IsCoprime a b) :\n+    ∃ t : R, IsUnit (a + t * b) := by\n+  classical\n+  have hcop : Pairwise (Function.onFun IsCoprime fun m : MaximalSpectrum R ↦ m.asIdeal) :=\n+    fun m n hmn ↦ Ideal.isCoprime_of_isMaximal fun e ↦ hmn (MaximalSpectrum.ext e)\n+  -- modulo `m`, take `t = 0` if `b ∈ m`, and `t = b⁻¹ (1 - a)` otherwise\n+  let x : MaximalSpectrum R → R := fun m ↦\n+    if hb : b ∈ m.asIdeal then 0 else (m.isMaximal.exists_inv hb).choose * (1 - a)\n+  obtain ⟨t, ht⟩ := Ideal.exists_forall_sub_mem_ideal hcop x\n+  refine ⟨t, by_contra fun hu ↦ ?_⟩\n+  obtain ⟨m, hm, hmem⟩ := exists_max_ideal_of_mem_nonunits hu\n+  have htm := ht ⟨m, hm⟩\n+  obtain ⟨u, v, huv⟩ := h\n+  refine hm.ne_top <| (Ideal.eq_top_iff_one _).2 ?_\n+  by_cases hb : b ∈ m\n+  · simp only [x, hb, ↓reduceDIte, sub_zero] at htm\n+    have ha : a ∈ m := by simpa using m.sub_mem hmem (m.mul_mem_left t hb)\n+    rw [← huv]\n+    exact m.add_mem (m.mul_mem_left _ ha) (m.mul_mem_left _ hb)\n+  · obtain ⟨k, hk, hy⟩ := (hm.exists_inv hb).choose_spec\n+    simp only [x, hb, ↓reduceDIte] at htm\n+    have e : (1 : R) = (a + t * b) - (t - (hm.exists_inv hb).choose * (1 - a)) * b +\n+        (1 - a) * k := by\n+      linear_combination (-(1 - a)) * hy\n+    rw [e]\n+    exact m.add_mem (m.sub_mem hmem (m.mul_mem_right _ htm)) (m.mul_mem_left _ hk)\n+\n end CommRing"
+  },
+  {
+   "filename": "docs/references.bib",
+   "status": "modified",
+   "additions": 10,
+   "deletions": 0,
+   "patch": "@@ -338,6 +338,16 @@\n   primaryclass  = {math.AG}\n }\n \n+@Article{         bass1964,\n+  author        = {Bass, Hyman},\n+  title         = {{$K$}-theory and stable algebra},\n+  journal       = {Publications Math\\'{e}matiques de l'IH\\'{E}S},\n+  volume        = {22},\n+  pages         = {5--60},\n+  year          = {1964},\n+  doi           = {10.1007/BF02684689}\n+}\n+\n @Book{            basu2006,\n   author        = {Basu, Saugata and Pollack, Richard and Roy, Marie-Fran{\\c\n                   c}oise},"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_threads": null,
+ "checks": null
+}

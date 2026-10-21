@@ -1,0 +1,43 @@
+{
+ "number": 44727,
+ "title": "feat(CategoryTheory/Monad/Monadicity): state the (co)monadicity theorem as an iff",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/44727",
+ "author": "mycaule",
+ "draft": null,
+ "labels": [
+  "t-category-theory"
+ ],
+ "body": "",
+ "head_sha": "13c4b3ff874b27cd77d4b2d01ec2dc6ef83d5960",
+ "base_sha": "13e84ecc31a36ebdb9faffafc7019f11c40c26a6",
+ "created_at": null,
+ "updated_at": "2026-10-18T10:18:17+02:00",
+ "commits": 7,
+ "files": [
+  {
+   "filename": "Mathlib/CategoryTheory/Monad/Comonadicity.lean",
+   "status": "modified",
+   "additions": 32,
+   "deletions": 0,
+   "patch": "@@ -26,12 +26,18 @@ comonadicity theorem:\n   `CategoryTheory.Monad.createsFSplitEqualizersOfComonadic`)\n * `C` has and `F` preserves `F`-split equalizers, and `F` reflects isomorphisms, see\n   `CategoryTheory.Monad.comonadicOfHasPreservesFSplitEqualizersOfReflectsIsomorphisms`\n+* `Comonad.isEquivalence_comparison_iff`: the comparison functor is an equivalence if and only if\n+  `F` reflects isomorphisms and `C` has and `F` preserves equalizers of `F`-cosplit pairs.\n * `C` has and `F` preserves coreflexive equalizers, and `F` reflects isomorphisms, see\n   `CategoryTheory.Monad.comonadicOfHasPreservesCoreflexiveEqualizersOfReflectsIsomorphisms`\n \n This file has been adapted from `Mathlib/CategoryTheory/Monad/Monadicity.lean`.\n Please try to keep them in sync.\n \n+## References\n+\n+* [J. Beck, *Triples, algebras and cohomology*][beck1967]\n+\n ## Tags\n \n Beck, comonadicity, descent\n@@ -353,6 +359,32 @@ def comonadicOfHasPreservesFSplitEqualizersOfReflectsIsomorphisms [F.ReflectsIso\n     apply reflectsLimit_of_reflectsIsomorphisms⟩\n   apply comonadicOfHasPreservesReflectsFSplitEqualizers adj\n \n+instance (priority := 100) reflectsIsomorphisms_of_comonadicLeftAdjoint\n+    [ComonadicLeftAdjoint F] : F.ReflectsIsomorphisms where\n+  reflects {X Y} φ hφ := by\n+    let adj := comonadicAdjunction F\n+    have : IsIso ((Comonad.forget adj.toComonad).map ((Comonad.comparison adj).map φ)) := hφ\n+    have := isIso_of_reflects_iso ((Comonad.comparison adj).map φ) (Comonad.forget _)\n+    exact isIso_of_fully_faithful (Comonad.comparison adj) φ\n+\n+/-- **Beck's comonadicity theorem**, in the form of a characterization: the comparison functor\n+of `adj : F ⊣ G` is an equivalence if and only if `F` reflects isomorphisms and, for every\n+`F`-cosplit pair `u, v`, the equalizer of `u` and `v` exists and is preserved by `F`. -/\n+theorem isEquivalence_comparison_iff : (Comonad.comparison adj).IsEquivalence ↔\n+    F.ReflectsIsomorphisms ∧ ∀ ⦃X Y : C⦄ (u v : X ⟶ Y), F.IsCosplitPair u v →\n+      HasEqualizer u v ∧ PreservesLimit (parallelPair u v) F := by\n+  refine ⟨fun h ↦ ?_, fun ⟨_, h⟩ ↦ ?_⟩\n+  · let _ : ComonadicLeftAdjoint F := ⟨G, adj, h⟩\n+    refine ⟨inferInstance, fun X Y u v _ ↦ ?_⟩\n+    have := createsFSplitEqualizersOfComonadic (F := F) u v\n+    have : HasLimit (parallelPair u v ⋙ F) :=\n+      hasLimit_of_iso (F := parallelPair (F.map u) (F.map v))\n+        (diagramIsoParallelPair (parallelPair u v ⋙ F)).symm\n+    exact ⟨hasLimit_of_created (parallelPair u v) F, inferInstance⟩\n+  · have : HasEqualizerOfIsCosplitPair F := ⟨fun u v _ ↦ (h u v inferInstance).1⟩\n+    have : PreservesLimitOfIsCosplitPair F := ⟨fun u v _ ↦ (h u v inferInstance).2⟩\n+    exact (comonadicOfHasPreservesFSplitEqualizersOfReflectsIsomorphisms adj).eqv\n+\n end BeckComonadicity\n \n section CoreflexiveComonadicity"
+  },
+  {
+   "filename": "Mathlib/CategoryTheory/Monad/Monadicity.lean",
+   "status": "modified",
+   "additions": 31,
+   "deletions": 0,
+   "patch": "@@ -27,10 +27,16 @@ show three versions of Beck's monadicity theorem, and the reflexive (crude) mona\n   `CategoryTheory.Monad.monadicOfHasPreservesGSplitCoequalizersOfReflectsIsomorphisms`\n * `D` has and `G` preserves reflexive coequalizers, and `G` reflects isomorphisms, see\n   `CategoryTheory.Monad.monadicOfHasPreservesReflexiveCoequalizersOfReflectsIsomorphisms`\n+* `Monad.isEquivalence_comparison_iff`: the comparison functor is an equivalence if and only if\n+  `G` reflects isomorphisms and `D` has and `G` preserves coequalizers of `G`-split pairs.\n \n This file has been adapted to `Mathlib/CategoryTheory/Monad/Comonadicity.lean`.\n Please try to keep them in sync.\n \n+## References\n+\n+* [J. Beck, *Triples, algebras and cohomology*][beck1967]\n+\n ## Tags\n \n Beck, monadicity, descent\n@@ -371,6 +377,31 @@ def monadicOfHasPreservesGSplitCoequalizersOfReflectsIsomorphisms [G.ReflectsIso\n     apply reflectsColimit_of_reflectsIsomorphisms⟩\n   apply monadicOfHasPreservesReflectsGSplitCoequalizers adj\n \n+instance (priority := 100) reflectsIsomorphisms_of_monadicRightAdjoint\n+    [MonadicRightAdjoint G] : G.ReflectsIsomorphisms where\n+  reflects {X Y} φ hφ := by\n+    let adj := monadicAdjunction G\n+    have : IsIso ((Monad.forget adj.toMonad).map ((Monad.comparison adj).map φ)) := hφ\n+    have := isIso_of_reflects_iso ((Monad.comparison adj).map φ) (Monad.forget _)\n+    exact isIso_of_fully_faithful (Monad.comparison adj) φ\n+\n+/-- **Beck's monadicity theorem**, in the form of a characterization: the comparison functor\n+of `adj : F ⊣ G` is an equivalence if and only if `G` reflects isomorphisms and, for every\n+`G`-split pair `u, v`, the coequalizer of `u` and `v` exists and is preserved by `G`. -/\n+theorem isEquivalence_comparison_iff : (Monad.comparison adj).IsEquivalence ↔\n+    G.ReflectsIsomorphisms ∧ ∀ ⦃X Y : D⦄ (u v : X ⟶ Y), G.IsSplitPair u v →\n+      HasCoequalizer u v ∧ PreservesColimit (parallelPair u v) G := by\n+  refine ⟨fun h ↦ ?_, fun ⟨_, h⟩ ↦ ?_⟩\n+  · let _ : MonadicRightAdjoint G := ⟨F, adj, h⟩\n+    refine ⟨inferInstance, fun X Y u v _ ↦ ?_⟩\n+    have := createsGSplitCoequalizersOfMonadic G u v\n+    have : HasColimit (parallelPair u v ⋙ G) :=\n+      hasColimit_of_iso (F := parallelPair (G.map u) (G.map v)) (diagramIsoParallelPair _)\n+    exact ⟨hasColimit_of_created (parallelPair u v) G, inferInstance⟩\n+  · have : HasCoequalizerOfIsSplitPair G := ⟨fun u v _ ↦ (h u v inferInstance).1⟩\n+    have : PreservesColimitOfIsSplitPair G := ⟨fun u v _ ↦ (h u v inferInstance).2⟩\n+    exact (monadicOfHasPreservesGSplitCoequalizersOfReflectsIsomorphisms adj).eqv\n+\n end BeckMonadicity\n \n section ReflexiveMonadicity"
+  },
+  {
+   "filename": "docs/references.bib",
+   "status": "modified",
+   "additions": 10,
+   "deletions": 0,
+   "patch": "@@ -375,6 +375,16 @@\n   year          = {2004}\n }\n \n+@PhDThesis{       beck1967,\n+  author        = {Beck, Jonathan Mock},\n+  title         = {Triples, algebras and cohomology},\n+  school        = {Columbia University},\n+  year          = {1967},\n+  note          = {Reprinted in Reprints in Theory and Applications of\n+                  Categories, No. 2 (2003), 1--59},\n+  url           = {http://www.tac.mta.ca/tac/reprints/articles/2/tr2abs.html}\n+}\n+\n @Book{            Becker-Weispfenning1993,\n   address       = {New York, NY},\n   series        = {Graduate Texts in Mathematics},"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_threads": null,
+ "checks": null
+}

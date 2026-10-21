@@ -1,0 +1,29 @@
+{
+ "number": 44717,
+ "title": "feat(LinearAlgebra/TensorProduct/Basis): range of `rTensor` in coordinates",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/44717",
+ "author": "mycaule",
+ "draft": null,
+ "labels": [
+  "t-algebra"
+ ],
+ "body": "",
+ "head_sha": "b92da50c078044775f3ca4bb2ae5e5b8447ea20e",
+ "base_sha": "113454bc32fc15317f9e88d2fe1dca45367cdf9f",
+ "created_at": null,
+ "updated_at": "2026-10-15T21:43:45+02:00",
+ "commits": 5,
+ "files": [
+  {
+   "filename": "Mathlib/LinearAlgebra/TensorProduct/Basis.lean",
+   "status": "modified",
+   "additions": 20,
+   "deletions": 0,
+   "patch": "@@ -122,6 +122,26 @@ lemma TensorProduct.sum_tmul_basis_right_eq_zero\n   have := Classical.decEq κ\n   (TensorProduct.equivFinsuppOfBasisRight 𝒞).symm.injective (a₂ := 0) <| by simpa\n \n+lemma TensorProduct.equivFinsuppOfBasisRight_rTensor {P : Type*} [AddCommMonoid P] [Module R P]\n+    (f : M →ₗ[R] P) (x : M ⊗[R] N) :\n+    equivFinsuppOfBasisRight 𝒞 (f.rTensor N x) =\n+      (equivFinsuppOfBasisRight 𝒞 x).mapRange f f.map_zero := by\n+  induction x with\n+  | tmul m n => ext; simp\n+  | add x y hx hy => simp [hx, hy, Finsupp.mapRange_add (map_add f)]\n+\n+/-- Let `𝒞` be a basis of `N`. An element of `P ⊗[R] N` lies in the range of `f.rTensor N` if and\n+only if each of its coordinates with respect to `𝒞` lies in the range of `f`. -/\n+lemma TensorProduct.mem_range_rTensor_iff_equivFinsuppOfBasisRight {P : Type*} [AddCommMonoid P]\n+    [Module R P] (f : M →ₗ[R] P) (x : P ⊗[R] N) :\n+    x ∈ range (f.rTensor N) ↔ ∀ i, equivFinsuppOfBasisRight 𝒞 x i ∈ range f := by\n+  refine ⟨?_, fun h ↦ ?_⟩\n+  · rintro ⟨y, rfl⟩ i\n+    simp [equivFinsuppOfBasisRight_rTensor]\n+  choose g hg using h\n+  rw [← (equivFinsuppOfBasisRight 𝒞).symm_apply_apply x, equivFinsuppOfBasisRight_symm_apply]\n+  exact Submodule.sum_mem _ fun i _ ↦ ⟨g i ⊗ₜ 𝒞 i, by simp [hg]⟩\n+\n /--\n If `{ℬᵢ}` is a basis for the module `M`, then every elements of `x ∈ M ⊗ N` can be uniquely written\n as `∑ᵢ ℬᵢ ⊗ nᵢ` for some `nᵢ ∈ N`."
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_threads": null,
+ "checks": null
+}

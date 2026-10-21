@@ -1,0 +1,29 @@
+{
+ "number": 44768,
+ "title": "feat(Topology/Algebra/Order/Group): adjacent sequences converge",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/44768",
+ "author": "mycaule",
+ "draft": null,
+ "labels": [
+  "t-topology"
+ ],
+ "body": "",
+ "head_sha": "070f2f8b625ac9533ad914bea28043e890d31e21",
+ "base_sha": "051bc081081f2bb77b81d47ee69146c4cef28bbe",
+ "created_at": null,
+ "updated_at": "2026-10-15T21:32:53+02:00",
+ "commits": 3,
+ "files": [
+  {
+   "filename": "Mathlib/Topology/Algebra/Order/Group.lean",
+   "status": "modified",
+   "additions": 34,
+   "deletions": 0,
+   "patch": "@@ -9,6 +9,7 @@ public import Mathlib.Topology.Algebra.Group.Defs\n public import Mathlib.Topology.Order.LeftRightNhds\n \n import Mathlib.Algebra.Order.Group.Basic\n+import Mathlib.Topology.Order.MonotoneConvergence\n \n /-!\n # Topology on a linear ordered commutative group\n@@ -16,6 +17,9 @@ import Mathlib.Algebra.Order.Group.Basic\n In this file we prove that a linear ordered commutative group with order topology\n is a topological group.\n We also prove continuity of `abs : G → G` and provide convenience lemmas like `ContinuousAt.abs`.\n+Finally, we prove that two adjacent sequences (one monotone, one antitone, with difference\n+tending to zero) converge to the same limit:\n+`Monotone.exists_tendsto_of_antitone_of_tendsto_sub`.\n -/\n \n public section\n@@ -142,3 +146,33 @@ theorem not_denseRange_zpow [Nontrivial G] [DenselyOrdered G] {a : G} :\n     ¬DenseRange (a ^ · : ℤ → G) :=\n   denseRange_zpow_iff_surjective.not.mpr fun h ↦\n     not_isCyclic_of_denselyOrdered G ⟨⟨a, h⟩⟩\n+\n+section Adjacent\n+\n+variable {ι H : Type*} [Preorder ι] [IsDirectedOrder ι] [Nonempty ι]\n+  [ConditionallyCompleteLinearOrder H] [CommGroup H] [IsOrderedMonoid H] [TopologicalSpace H]\n+  [OrderTopology H] {u v : ι → H}\n+\n+@[to_additive]\n+theorem Monotone.le_of_antitone_of_tendsto_div (hu : Monotone u) (hv : Antitone v)\n+    (h : Tendsto (v / u) atTop (𝓝 1)) (i : ι) : u i ≤ v i := by\n+  rw [← one_le_div']\n+  exact _root_.le_of_tendsto h <| eventually_atTop.2 ⟨i, fun j hj ↦ div_le_div'' (hv hj) (hu hj)⟩\n+\n+/-- **Adjacent sequences**: if `u` is monotone, `v` is antitone and `v / u` tends to one, then\n+`u` and `v` converge to the same limit. -/\n+@[to_additive /-- **Adjacent sequences**: if `u` is monotone, `v` is antitone and `v - u` tends\n+to zero, then `u` and `v` converge to the same limit. -/]\n+theorem Monotone.exists_tendsto_of_antitone_of_tendsto_div (hu : Monotone u) (hv : Antitone v)\n+    (h : Tendsto (v / u) atTop (𝓝 1)) :\n+    ∃ l, Tendsto u atTop (𝓝 l) ∧ Tendsto v atTop (𝓝 l) := by\n+  have hle := hu.le_of_antitone_of_tendsto_div hv h\n+  obtain ⟨i₀⟩ := ‹Nonempty ι›\n+  have hbdd : BddAbove (range u) := by\n+    refine ⟨v i₀, forall_mem_range.2 fun i ↦ ?_⟩\n+    obtain ⟨j, hij, hi₀j⟩ := exists_ge_ge i i₀\n+    exact (hu hij).trans ((hle j).trans (hv hi₀j))\n+  have hu' := tendsto_atTop_ciSup hu hbdd\n+  exact ⟨_, hu', by simpa using h.mul hu'⟩\n+\n+end Adjacent"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_threads": null,
+ "checks": null
+}

@@ -1,0 +1,29 @@
+{
+ "number": 44729,
+ "title": "feat(NumberTheory/CarmichaelNumber): powers modulo a squarefree number",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/44729",
+ "author": "mycaule",
+ "draft": null,
+ "labels": [
+  "t-number-theory"
+ ],
+ "body": "",
+ "head_sha": "4b0282c3e66422bf64056e4f3c0df9e4ef89f94a",
+ "base_sha": "8678dc2abc57fefb3ab0153e7c49966cf1829b9b",
+ "created_at": null,
+ "updated_at": "2026-10-15T21:46:48+02:00",
+ "commits": 4,
+ "files": [
+  {
+   "filename": "Mathlib/NumberTheory/CarmichaelNumber.lean",
+   "status": "modified",
+   "additions": 60,
+   "deletions": 0,
+   "patch": "@@ -24,6 +24,11 @@ This file defines Carmichael numbers and proves Korselt's criterion about them.\n \n * `Nat.isCarmichael_iff_korselt`: Korselt's criterion for Carmichael numbers\n * `Nat.isCarmichael_561`: `561` is a Carmichael number\n+* `Squarefree.zmod_pow_mul_carmichael_add_one`: if `n` is squarefree, then\n+  `a ^ (k * λ n + 1) = a` for every `a : ZMod n`\n+* `Nat.squarefree_iff_forall_zmod_pow_carmichael_add_one`: the converse, as an equivalence\n+* `Nat.IsCarmichael.zmod_pow_eq_self`: a Carmichael number `n` satisfies `a ^ n = a` for every\n+  `a : ZMod n`\n \n ## TODO\n \n@@ -175,4 +180,59 @@ theorem isCarmichael_1105 : IsCarmichael 1105 := by\n   simp [isCarmichael_iff_korselt_primeFactorsList]\n   norm_num\n \n+/-! ### Powers modulo a squarefree number -/\n+\n+/-- If `n` is squarefree, then `a ^ (k * λ n + 1) = a` for every `a : ZMod n`, where `λ` is the\n+Carmichael function. This holds for all residues, not only units: it is the identity behind the\n+correctness of RSA. -/\n+theorem _root_.Squarefree.zmod_pow_mul_carmichael_add_one (hn : Squarefree n) (k : ℕ)\n+    (a : ZMod n) : a ^ (k * carmichael n + 1) = a := by\n+  have : NeZero n := ⟨hn.ne_zero⟩\n+  have hle (b : ℕ) : b ≤ b ^ (k * carmichael n + 1) := Nat.le_self_pow (by lia) b\n+  rw [← ZMod.natCast_zmod_val a, ← Nat.cast_pow, ZMod.natCast_eq_natCast_iff]\n+  refine ((Nat.modEq_iff_dvd' (hle _)).2 ?_).symm\n+  have key : ∏ p ∈ n.primeFactors, p ∣ a.val ^ (k * carmichael n + 1) - a.val := by\n+    refine Finset.prod_primes_dvd _ (fun p hp ↦ (Nat.prime_of_mem_primeFactors hp).prime)\n+      fun p hp ↦ ?_\n+    have hp' := Nat.prime_of_mem_primeFactors hp\n+    have : Fact p.Prime := ⟨hp'⟩\n+    rw [← Nat.modEq_iff_dvd' (hle _), ← ZMod.natCast_eq_natCast_iff, Nat.cast_pow]\n+    obtain ⟨j, hj⟩ : p - 1 ∣ carmichael n :=\n+      carmichael_of_prime hp' ▸ carmichael_dvd (Nat.dvd_of_mem_primeFactors hp)\n+    by_cases hb : (a.val : ZMod p) = 0\n+    · simp [hb]\n+    · rw [pow_succ, hj, mul_comm k, mul_assoc, pow_mul, ZMod.pow_card_sub_one_eq_one hb, one_pow,\n+        one_mul]\n+  rwa [Nat.prod_primeFactors_of_squarefree hn] at key\n+\n+theorem squarefree_of_forall_zmod_pow_add_one_eq {m : ℕ} (hm : m ≠ 0)\n+    (h : ∀ a : ZMod n, a ^ (m + 1) = a) : Squarefree n := by\n+  rw [Nat.squarefree_iff_prime_squarefree]\n+  intro p hp hpp\n+  have h1 : p ^ (m + 1) ≡ p [MOD p * p] :=\n+    ((ZMod.natCast_eq_natCast_iff _ _ _).1 (by exact_mod_cast h p)).of_dvd hpp\n+  have h2 : p ^ (m + 1) ≡ 0 [MOD p * p] :=\n+    Nat.modEq_zero_iff_dvd.2 (by rw [← sq]; exact pow_dvd_pow p (by lia))\n+  have h3 : p * p ≤ p := Nat.le_of_dvd hp.pos (Nat.modEq_zero_iff_dvd.1 (h1.symm.trans h2))\n+  nlinarith [hp.two_le]\n+\n+/-- A positive integer `n` is squarefree if and only if `a ^ (λ n + 1) = a` for every\n+`a : ZMod n`, where `λ` is the Carmichael function. -/\n+theorem squarefree_iff_forall_zmod_pow_carmichael_add_one (hn : n ≠ 0) :\n+    Squarefree n ↔ ∀ a : ZMod n, a ^ (carmichael n + 1) = a := by\n+  have : NeZero n := ⟨hn⟩\n+  refine ⟨fun h a ↦ by simpa using h.zmod_pow_mul_carmichael_add_one 1 a,\n+    squarefree_of_forall_zmod_pow_add_one_eq\n+      (carmichael_eq_exponent hn ▸ Monoid.exponent_ne_zero_of_finite)⟩\n+\n+/-- A Carmichael number `n` satisfies `a ^ n = a` for every `a : ZMod n`, including the residues\n+that are not coprime to `n`. -/\n+theorem IsCarmichael.zmod_pow_eq_self (h : n.IsCarmichael) (a : ZMod n) : a ^ n = a := by\n+  obtain ⟨d, hd⟩ := h.carmichael_dvd_sub_one\n+  have hn : n = d * carmichael n + 1 := by\n+    have := h.two_lt\n+    lia\n+  have e := h.squarefree.zmod_pow_mul_carmichael_add_one d a\n+  rwa [← hn] at e\n+\n end Nat"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_threads": null,
+ "checks": null
+}

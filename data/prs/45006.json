@@ -1,0 +1,29 @@
+{
+ "number": 45006,
+ "title": "feat(Data/Nat/Choose/Lucas): `choose (p ^ a - 1) k ≡ (-1) ^ k [ZMOD p]`",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/45006",
+ "author": "mycaule",
+ "draft": null,
+ "labels": [
+  "t-data"
+ ],
+ "body": "",
+ "head_sha": "c29e267e92c02d4579dd474444d9a2a9ae01ead2",
+ "base_sha": "e3e75e86143b43849829fdcd44a39a6b0fe35234",
+ "created_at": null,
+ "updated_at": "2026-10-19T17:04:43+02:00",
+ "commits": 4,
+ "files": [
+  {
+   "filename": "Mathlib/Data/Nat/Choose/Lucas.lean",
+   "status": "modified",
+   "additions": 17,
+   "deletions": 0,
+   "patch": "@@ -132,6 +132,23 @@ theorem choose_pow_mul_pow_mul_modEq_choose_nat :\n   rw [← Int.natCast_modEq_iff]\n   exact_mod_cast choose_pow_mul_pow_mul_modEq_choose\n \n+/-- For primes `p` and `k ≤ p ^ a - 1`, `choose (p ^ a - 1) k` is congruent to `(-1) ^ k`\n+modulo `p`. -/\n+theorem choose_pow_sub_one_modEq_neg_one_pow (hk : k ≤ p ^ a - 1) :\n+    choose (p ^ a - 1) k ≡ (-1) ^ k [ZMOD p] := by\n+  induction k with\n+  | zero => simp [Int.ModEq.refl]\n+  | succ k ih =>\n+    have h := (Fact.out : p.Prime).dvd_choose_pow (n := a) k.succ_ne_zero (by lia)\n+    rw [← Nat.sub_add_cancel (by lia : 1 ≤ p ^ a), choose_succ_succ'] at h\n+    simpa [pow_succ] using (Int.natCast_dvd_natCast.2 h).modEq_zero_int.sub (ih (by lia))\n+\n+/-- For primes `p` and `k ≤ p ^ a - 1`, `p` does not divide `choose (p ^ a - 1) k`. -/\n+theorem not_dvd_choose_pow_sub_one (hk : k ≤ p ^ a - 1) : ¬ p ∣ choose (p ^ a - 1) k := fun h ↦\n+  (Fact.out : p.Prime).not_dvd_one <| by\n+    simpa [Int.natCast_dvd] using ((Int.natCast_dvd_natCast.2 h).modEq_zero_int.symm.trans\n+      (choose_pow_sub_one_modEq_neg_one_pow hk)).dvd\n+\n /-- For primes `p` and positive integer `n`, assume that for all `i ∈ Icc 1 (n - 1)`,\n `choose n i` congruent to `0` module `p`, then `n = p ^ multiplicity p n`.\n Also see `eq_pow_multiplicity_of_choose_modEq_zero_nat` for the version with `MOD`. -/"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_threads": null,
+ "checks": null
+}

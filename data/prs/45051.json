@@ -1,0 +1,29 @@
+{
+ "number": 45051,
+ "title": "feat(RingTheory/Derivation/Lie): commutator of a derivation with multiplication",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/45051",
+ "author": "mycaule",
+ "draft": null,
+ "labels": [
+  "t-ring-theory"
+ ],
+ "body": "",
+ "head_sha": "48d5ee2c7062ba5061da11f5a8c4b626f8a55ad8",
+ "base_sha": "533bd7c0a49acce520ee20b6ccc3a2f34e76be61",
+ "created_at": null,
+ "updated_at": "2026-10-20T03:00:06+02:00",
+ "commits": 2,
+ "files": [
+  {
+   "filename": "Mathlib/RingTheory/Derivation/Lie.lean",
+   "status": "modified",
+   "additions": 13,
+   "deletions": 0,
+   "patch": "@@ -71,6 +71,19 @@ instance : LieModule R (Derivation R A A) A where\n @[simp]\n lemma bracket_eq_fun (X : Derivation R A A) (a : A) : ⁅X, a⁆ = X a := rfl\n \n+theorem lie_mulLeft (D : Derivation R A A) :\n+    ⁅(D : Module.End R A), LinearMap.mulLeft R a⁆ = LinearMap.mulLeft R (D a) := by\n+  ext; simp [Ring.lie_def, leibniz, mul_comm]\n+\n+/-- Conjugating a derivation by multiplication by a unit `u` subtracts multiplication by the\n+logarithmic derivative `u⁻¹ * D u`. -/\n+theorem mulLeft_mul_mul_mulLeft_inv (D : Derivation R A A) (u : Aˣ) :\n+    LinearMap.mulLeft R (u : A) * (D : Module.End R A) * LinearMap.mulLeft R ((u⁻¹ : Aˣ) : A) =\n+      (D : Module.End R A) - LinearMap.mulLeft R ((u⁻¹ : Aˣ) * D u) := by\n+  ext b\n+  simp [leibniz, D.leibniz_of_mul_eq_one u.inv_mul, mul_add, sq, ← mul_assoc, mul_comm _ b,\n+    sub_eq_neg_add]\n+\n section CompatibleDerivations\n variable {A' : Type*} [CommRing A'] [Algebra R A'] [Algebra A A'] [IsScalarTower R A A']\n attribute [local instance 100] LieRing.ofAssociativeRing"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_threads": null,
+ "checks": null
+}

@@ -1,0 +1,29 @@
+{
+ "number": 44970,
+ "title": "feat(RingTheory/Etale/Kaehler): the first fundamental sequence of a formally smooth algebra is split",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/44970",
+ "author": "mycaule",
+ "draft": null,
+ "labels": [
+  "t-ring-theory"
+ ],
+ "body": "",
+ "head_sha": "07082e712a10e986672d45b78d7702f8d80deac8",
+ "base_sha": "e055050ca1956f231c284a88cca79a7b54fb9abd",
+ "created_at": null,
+ "updated_at": "2026-10-17T15:58:11+02:00",
+ "commits": 2,
+ "files": [
+  {
+   "filename": "Mathlib/RingTheory/Etale/Kaehler.lean",
+   "status": "modified",
+   "additions": 25,
+   "deletions": 7,
+   "patch": "@@ -13,10 +13,17 @@ public import Mathlib.RingTheory.Kaehler.JacobiZariski\n # The differential module and étale algebras\n \n ## Main results\n+- `KaehlerDifferential.exists_retraction_mapBaseChange`:\n+  The map `T ⊗[S] Ω[S⁄R] →ₗ[T] Ω[T⁄R]` has a retraction for `T` a formally smooth `S`-algebra,\n+  i.e. the first fundamental sequence `0 → T ⊗[S] Ω[S⁄R] → Ω[T⁄R] → Ω[T⁄S] → 0` is split exact.\n - `KaehlerDifferential.tensorKaehlerEquivOfFormallyEtale`:\n   The canonical isomorphism `T ⊗[S] Ω[S⁄R] ≃ₗ[T] Ω[T⁄R]` for `T` a formally étale `S`-algebra.\n - `Algebra.tensorH1CotangentOfIsLocalization`:\n   The canonical isomorphism `T ⊗[S] H¹(L_{S⁄R}) ≃ₗ[T] H¹(L_{T⁄R})` for `T` a localization of `S`.\n+\n+## References\n+\n+- [H. Matsumura, *Commutative Ring Theory*][matsumura1987], Theorem 25.1\n -/\n \n @[expose] public section\n@@ -28,19 +35,30 @@ variable [Algebra R S] [Algebra R T] [Algebra S T] [IsScalarTower R S T]\n \n open TensorProduct\n \n+lemma KaehlerDifferential.mapBaseChange_injective [Subsingleton (Algebra.H1Cotangent S T)] :\n+    Function.Injective (mapBaseChange R S T) :=\n+  (LinearMap.injective_iff_eq_zero_of_exact (Algebra.H1Cotangent.exact_δ_mapBaseChange R S T)).2\n+    (Subsingleton.elim _ _)\n+\n+/-- The first fundamental sequence `0 → T ⊗[S] Ω[S⁄R] → Ω[T⁄R] → Ω[T⁄S] → 0` is split exact\n+when `H¹(L_{T⁄S}) = 0` and `Ω[T⁄S]` is projective, e.g. when `T` is a formally smooth `S`-algebra\n+([Matsumura, Theorem 25.1][matsumura1987]). -/\n+lemma KaehlerDifferential.exists_retraction_mapBaseChange [Subsingleton (Algebra.H1Cotangent S T)]\n+    [Module.Projective T Ω[T⁄S]] :\n+    ∃ l : Ω[T⁄R] →ₗ[T] T ⊗[S] Ω[S⁄R], l ∘ₗ mapBaseChange R S T = LinearMap.id :=\n+  ((exact_mapBaseChange_map R S T).split_tfae (mapBaseChange_injective R S T)\n+    (map_surjective R S T)).out 1 2 |>.mp <|\n+    Module.projective_lifting_property _ _ (map_surjective R S T)\n+\n /--\n The canonical isomorphism `T ⊗[S] Ω[S⁄R] ≃ₗ[T] Ω[T⁄R]` for `T` a formally étale `S`-algebra.\n Also see `S ⊗[R] Ω[A⁄R] ≃ₗ[S] Ω[S ⊗[R] A⁄S]` at `KaehlerDifferential.tensorKaehlerEquiv`.\n -/\n @[simps! apply] noncomputable\n def KaehlerDifferential.tensorKaehlerEquivOfFormallyEtale [Algebra.FormallyEtale S T] :\n-    T ⊗[S] Ω[S⁄R] ≃ₗ[T] Ω[T⁄R] := by\n-  refine LinearEquiv.ofBijective (mapBaseChange R S T)\n-    ⟨?_, fun x ↦ (KaehlerDifferential.exact_mapBaseChange_map R S T x).mp (Subsingleton.elim _ _)⟩\n-  rw [injective_iff_map_eq_zero]\n-  intro x hx\n-  obtain ⟨x, rfl⟩ := (Algebra.H1Cotangent.exact_δ_mapBaseChange R S T x).mp hx\n-  rw [Subsingleton.elim x 0, map_zero]\n+    T ⊗[S] Ω[S⁄R] ≃ₗ[T] Ω[T⁄R] :=\n+  .ofBijective (mapBaseChange R S T) ⟨mapBaseChange_injective R S T,\n+    fun x ↦ (exact_mapBaseChange_map R S T x).mp (Subsingleton.elim _ _)⟩\n \n lemma KaehlerDifferential.tensorKaehlerEquivOfFormallyEtale_symm_D_algebraMap\n     [Algebra.FormallyEtale S T] (s : S) :"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_threads": null,
+ "checks": null
+}

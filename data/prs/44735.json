@@ -1,0 +1,36 @@
+{
+ "number": 44735,
+ "title": "feat(Data/Nat/Choose/Lucas): `p ^ e ∣ n` iff `p` divides `n.choose k` for `0 < k < p ^ e`",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/44735",
+ "author": "mycaule",
+ "draft": null,
+ "labels": [
+  "t-data"
+ ],
+ "body": "",
+ "head_sha": "79d4573c3589076596e1a303efd7f20d50069748",
+ "base_sha": "8678dc2abc57fefb3ab0153e7c49966cf1829b9b",
+ "created_at": null,
+ "updated_at": "2026-10-18T10:18:18+02:00",
+ "commits": 6,
+ "files": [
+  {
+   "filename": "Mathlib/Data/Nat/Choose/Lucas.lean",
+   "status": "modified",
+   "additions": 37,
+   "deletions": 0,
+   "patch": "@@ -22,6 +22,12 @@ respectively.\n \n * `lucas_theorem`: the binomial coefficient `n choose k` is congruent to the product of `n_i choose\n   k_i` modulo `p`, where `n_i` and `k_i` are the base-`p` digits of `n` and `k`, respectively.\n+* `pow_dvd_iff_forall_dvd_choose`: `p ^ e` divides `n` if and only if `p` divides `n choose k` for\n+  all `0 < k < p ^ e`.\n+\n+## References\n+\n+* [É. Lucas, *Théorie des fonctions numériques simplement périodiques*][lucas1878]\n -/\n \n public section\n@@ -132,6 +138,37 @@ theorem choose_pow_mul_pow_mul_modEq_choose_nat :\n   rw [← Int.natCast_modEq_iff]\n   exact_mod_cast choose_pow_mul_pow_mul_modEq_choose\n \n+/-- For primes `p`, `p ^ e` divides `n` if and only if `p` divides `choose n k` for all\n+`0 < k < p ^ e`. -/\n+theorem pow_dvd_iff_forall_dvd_choose {e : ℕ} :\n+    p ^ e ∣ n ↔ ∀ k, 0 < k → k < p ^ e → p ∣ choose n k := by\n+  have hp : p.Prime := Fact.out\n+  constructor\n+  · induction e generalizing n with\n+    | zero => intro _ k hk hk'; lia\n+    | succ e ih =>\n+      intro hn k hk hk'\n+      have hpn : p ∣ n := (dvd_pow_self p e.succ_ne_zero).trans hn\n+      rw [(choose_modEq_choose_mod_mul_choose_div_nat (p := p)).dvd_iff dvd_rfl,\n+        Nat.mod_eq_zero_of_dvd hpn]\n+      by_cases hkp : k % p = 0\n+      · obtain ⟨n, rfl⟩ := hpn\n+        obtain ⟨k, rfl⟩ := Nat.dvd_of_mod_eq_zero hkp\n+        rw [Nat.pow_succ', Nat.mul_dvd_mul_iff_left hp.pos] at hn\n+        rw [Nat.pow_succ', Nat.mul_lt_mul_left hp.pos] at hk'\n+        rw [Nat.mul_div_cancel_left _ hp.pos, Nat.mul_div_cancel_left _ hp.pos]\n+        exact dvd_mul_of_dvd_right (ih hn k (Nat.pos_of_mul_pos_left hk) hk') _\n+      · simp [Nat.choose_eq_zero_of_lt (Nat.pos_of_ne_zero hkp)]\n+  · intro h\n+    by_contra hn\n+    obtain ⟨v, m, hm, rfl⟩ := Nat.exists_eq_pow_mul_and_not_dvd (n := n)\n+      (by rintro rfl; exact hn (dvd_zero _)) p hp.ne_one\n+    have hv : v < e := lt_of_not_ge fun hv ↦ hn ((Nat.pow_dvd_pow p hv).trans (dvd_mul_right _ _))\n+    have := (choose_pow_mul_pow_mul_modEq_choose_nat (p := p) (k := v) (a := m) (b := 1)).dvd_iff\n+      dvd_rfl\n+    rw [mul_one, choose_one_right] at this\n+    exact hm (this.1 (h _ (pow_pos hp.pos v) (Nat.pow_lt_pow_right hp.one_lt hv)))\n+\n /-- For primes `p` and positive integer `n`, assume that for all `i ∈ Icc 1 (n - 1)`,\n `choose n i` congruent to `0` module `p`, then `n = p ^ multiplicity p n`.\n Also see `eq_pow_multiplicity_of_choose_modEq_zero_nat` for the version with `MOD`. -/"
+  },
+  {
+   "filename": "docs/references.bib",
+   "status": "modified",
+   "additions": 11,
+   "deletions": 0,
+   "patch": "@@ -4109,6 +4109,17 @@\n   edition       = {1}\n }\n \n+@Article{         lucas1878,\n+  author        = {Lucas, {\\'E}douard},\n+  title         = {Th{\\'e}orie des fonctions num{\\'e}riques simplement\n+                  p{\\'e}riodiques},\n+  journal       = {American Journal of Mathematics},\n+  volume        = {1},\n+  pages         = {184--240, 289--321},\n+  year          = {1878},\n+  doi           = {10.2307/2369308}\n+}\n+\n @Book{            LurieHTT,\n   title         = {Higher Topos Theory},\n   author        = {Jacob Lurie},"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_threads": null,
+ "checks": null
+}

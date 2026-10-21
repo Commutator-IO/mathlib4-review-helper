@@ -1,0 +1,36 @@
+{
+ "number": 45008,
+ "title": "feat(LinearAlgebra/Matrix/Block): the symmetric Pascal matrix has determinant one",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/45008",
+ "author": "mycaule",
+ "draft": null,
+ "labels": [
+  "t-algebra"
+ ],
+ "body": "",
+ "head_sha": "3ddd1f65988f1c15893da5044ec09c50bfd605e8",
+ "base_sha": "bbeef91203015d10f6aaa3154121ef827e06eee8",
+ "created_at": null,
+ "updated_at": "2026-10-19T10:15:30+02:00",
+ "commits": 3,
+ "files": [
+  {
+   "filename": "Mathlib/LinearAlgebra/Matrix/Block.lean",
+   "status": "modified",
+   "additions": 35,
+   "deletions": 0,
+   "patch": "@@ -8,6 +8,8 @@ module\n public import Mathlib.LinearAlgebra.Matrix.NonsingularInverse\n public import Mathlib.LinearAlgebra.Matrix.Transvection\n \n+import Mathlib.Data.Nat.Choose.Vandermonde\n+\n /-!\n # Block matrices and their determinant\n \n@@ -28,6 +30,13 @@ matrices built out of blocks.\n   is equal to the product of the determinants of all the blocks\n * `Matrix.det_of_isUpperTriangular` and `Matrix.det_of_isLowerTriangular`: the determinant of\n   a triangular matrix is the product of the entries along the diagonal\n+* `Matrix.choose_mul_transpose_choose`: the symmetric Pascal matrix `((i + j).choose i)` is\n+  `L * Lᵀ` with `L = (i.choose j)` lower unitriangular (`Matrix.isLowerTriangular_choose`)\n+* `Matrix.det_pascal`: the symmetric Pascal matrix has determinant `1`\n+\n+## References\n+\n+* [A. Edelman and G. Strang, *Pascal matrices*][EdelmanStrang2004]\n \n ## Tags\n \n@@ -415,6 +424,32 @@ theorem det_of_isLowerTriangular [LinearOrder m] (M : Matrix m m R) (h : M.IsLow\n \n @[deprecated (since := \"2026-07-30\")] alias det_of_lowerTriangular := det_of_isLowerTriangular\n \n+theorem isLowerTriangular_choose (n : ℕ) :\n+    (of fun i j : Fin n ↦ (i : ℕ).choose j).IsLowerTriangular :=\n+  fun _ _ h ↦ Nat.choose_eq_zero_of_lt h\n+\n+/-- Vandermonde's identity in matrix form: the symmetric Pascal matrix `((i + j).choose i)` is\n+the product of the lower unitriangular matrix `(i.choose j)` and its transpose. -/\n+theorem choose_mul_transpose_choose (n : ℕ) :\n+    (of fun i j : Fin n ↦ (i : ℕ).choose j) * (of fun i j : Fin n ↦ (i : ℕ).choose j)ᵀ =\n+      of fun i j : Fin n ↦ (i + j : ℕ).choose i := by\n+  ext i j\n+  simp only [mul_apply, of_apply, transpose_apply]\n+  rw [Fin.sum_univ_eq_sum_range (fun k ↦ (i : ℕ).choose k * (j : ℕ).choose k),\n+    ← sum_subset (range_mono i.isLt) fun k _ hk ↦ by\n+      simp [Nat.choose_eq_zero_of_lt (not_lt.mp (mem_range.not.mp hk))],\n+    Nat.add_choose_eq, ← Nat.sum_antidiagonal_swap, Nat.sum_antidiagonal_eq_sum_range_succ_mk]\n+  exact sum_congr rfl fun k hk ↦ by simp [Nat.choose_symm (mem_range_succ_iff.mp hk)]\n+\n+variable (R) in\n+/-- The symmetric Pascal matrix `((i + j).choose i)` has determinant `1`. -/\n+theorem det_pascal (n : ℕ) :\n+    (of fun i j : Fin n ↦ ((i + j : ℕ).choose i : R)).det = 1 := by\n+  change ((of fun i j : Fin n ↦ (i + j : ℕ).choose i).map (Nat.castRingHom R)).det = 1\n+  rw [← choose_mul_transpose_choose, Matrix.map_mul, transpose_map, det_mul, det_transpose,\n+    det_of_isLowerTriangular _ ((isLowerTriangular_choose n).map _)]\n+  simp\n+\n theorem IsUpperTriangular.det_ne_zero_iff [LinearOrder m] [IsDomain R] (hM : M.IsUpperTriangular) :\n     M.det ≠ 0 ↔ ∀ i, M.diag i ≠ 0 := by\n   simp [det_of_isUpperTriangular hM, prod_ne_zero_iff]"
+  },
+  {
+   "filename": "docs/references.bib",
+   "status": "modified",
+   "additions": 11,
+   "deletions": 0,
+   "patch": "@@ -1965,6 +1965,17 @@\n   doi           = {10.1007/s001820400192}\n }\n \n+@Article{         EdelmanStrang2004,\n+  author        = {Edelman, Alan and Strang, Gilbert},\n+  title         = {Pascal Matrices},\n+  journal       = {The American Mathematical Monthly},\n+  volume        = {111},\n+  number        = {3},\n+  pages         = {189--197},\n+  year          = {2004},\n+  doi           = {10.1080/00029890.2004.11920065}\n+}\n+\n @Article{         ega-iv-1,\n   author        = {Grothendieck, A.},\n   title         = {{\\'E}l{\\'e}ments de g{\\'e}om{\\'e}trie alg{\\'e}brique."
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_threads": null,
+ "checks": null
+}

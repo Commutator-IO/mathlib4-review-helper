@@ -1,0 +1,29 @@
+{
+ "number": 44757,
+ "title": "feat(LinearAlgebra/ExteriorPower/Basis): the Cauchy–Binet formula",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/44757",
+ "author": "mycaule",
+ "draft": null,
+ "labels": [
+  "t-algebra"
+ ],
+ "body": "",
+ "head_sha": "f36fd70176862a1c7eac2f40f8399bc0b26bcb16",
+ "base_sha": "ff787258a3d97c4079c6dd8906211832dff5a00d",
+ "created_at": null,
+ "updated_at": "2026-10-14T16:36:49+02:00",
+ "commits": 6,
+ "files": [
+  {
+   "filename": "Mathlib/LinearAlgebra/ExteriorPower/Basis.lean",
+   "status": "modified",
+   "additions": 29,
+   "deletions": 0,
+   "patch": "@@ -213,3 +213,32 @@ lemma ιMulti_family_linearIndependent_field {I : Type*} [LinearOrder I] {v : I\n   rw [Submodule.coe_subtype, Function.comp_apply, Basis.span_apply]\n \n end exteriorPower\n+\n+namespace Matrix\n+\n+open Set exteriorPower\n+\n+variable {l o ι : Type*} [Fintype ι] [LinearOrder ι]\n+\n+/-- The **Cauchy–Binet formula**: for `A : Matrix (Fin n) ι R` and `B : Matrix ι (Fin n) R`,\n+`det (A * B)` is the sum, over the `n`-element subsets `s` of `ι`, of the products of the\n+maximal minors of `A` and `B` indexed by `s`. -/\n+theorem det_mul_eq_sum_powersetCard (A : Matrix (Fin n) ι R) (B : Matrix ι (Fin n) R) :\n+    (A * B).det = ∑ s : powersetCard ι n,\n+      (A.submatrix id (powersetCard.ofFinEmbEquiv.symm s)).det *\n+        (B.submatrix (powersetCard.ofFinEmbEquiv.symm s) id).det := by\n+  have h := congr(pairingDual R (ι → R) n (ιMulti R n fun j ↦ ∑ k, B k j • LinearMap.proj k)\n+    $(((Pi.basisFun R ι).exteriorPower n).sum_repr (ιMulti R n fun i ↦ A i))).symm\n+  eta_expand at h\n+  simpa [ιMulti_family, basis_repr_apply, Pi.single_apply, mul_comm (B _ _)] using! h\n+\n+/-- The **Cauchy–Binet formula** for minors: the minor of `A * B` on rows `I` and columns `K` is\n+the sum, over the `n`-element subsets `s` of `ι`, of the products of the minors of `A` on rows\n+`I` and columns `s` and of `B` on rows `s` and columns `K`. -/\n+theorem det_submatrix_mul (A : Matrix l ι R) (B : Matrix ι o R) (I : Fin n → l) (K : Fin n → o) :\n+    ((A * B).submatrix I K).det = ∑ s : powersetCard ι n,\n+      (A.submatrix I (powersetCard.ofFinEmbEquiv.symm s)).det *\n+        (B.submatrix (powersetCard.ofFinEmbEquiv.symm s) K).det := by\n+  simp [submatrix_mul A B I id K Function.bijective_id, det_mul_eq_sum_powersetCard]\n+\n+end Matrix"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_threads": null,
+ "checks": null
+}

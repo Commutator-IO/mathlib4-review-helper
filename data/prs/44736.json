@@ -1,0 +1,58 @@
+{
+ "number": 44736,
+ "title": "feat(Algebra/CharP/HasseDeriv): vanishing of Hasse derivatives in prime characteristic",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/44736",
+ "author": "mycaule",
+ "draft": null,
+ "labels": [
+  "t-algebra",
+  "blocked-by-other-PR"
+ ],
+ "body": "",
+ "head_sha": "e8c8588894633ee1253305e3d0d3a3b8b80a9080",
+ "base_sha": "8678dc2abc57fefb3ab0153e7c49966cf1829b9b",
+ "created_at": null,
+ "updated_at": "2026-10-18T10:18:31+02:00",
+ "commits": 14,
+ "files": [
+  {
+   "filename": "Mathlib.lean",
+   "status": "modified",
+   "additions": 1,
+   "deletions": 0,
+   "patch": "@@ -258,6 +258,7 @@ public import Mathlib.Algebra.CharP.Basic\n public import Mathlib.Algebra.CharP.CharAndCard\n public import Mathlib.Algebra.CharP.Defs\n public import Mathlib.Algebra.CharP.Frobenius\n+public import Mathlib.Algebra.CharP.HasseDeriv\n public import Mathlib.Algebra.CharP.IntermediateField\n public import Mathlib.Algebra.CharP.Invertible\n public import Mathlib.Algebra.CharP.Lemmas"
+  },
+  {
+   "filename": "Mathlib/Algebra/CharP/HasseDeriv.lean",
+   "status": "added",
+   "additions": 72,
+   "deletions": 0,
+   "patch": "@@ -0,0 +1,72 @@\n+/-\n+Copyright (c) 2026 Michel Hua. All rights reserved.\n+Released under Apache 2.0 license as described in the file LICENSE.\n+Authors: Michel Hua\n+-/\n+module\n+\n+public import Mathlib.Algebra.CharP.Invertible\n+public import Mathlib.Algebra.Polynomial.Expand\n+public import Mathlib.Algebra.Polynomial.HasseDeriv\n+public import Mathlib.Data.Nat.Choose.Lucas\n+\n+/-!\n+# Hasse derivatives in prime characteristic\n+\n+Over a ring of prime characteristic `p`, the Hasse derivatives `hasseDeriv k f` of orders\n+`0 < k < p ^ e` all vanish if and only if `f` is a polynomial in `X ^ (p ^ e)`.\n+\n+## Main statements\n+\n+* `Polynomial.forall_hasseDeriv_eq_zero_iff`: the Hasse derivatives of `f` of orders\n+  `0 < k < p ^ e` vanish if and only if `p ^ e` divides every exponent of `f`.\n+* `Polynomial.forall_hasseDeriv_eq_zero_iff_exists_expand`: the same condition holds if and only if\n+  `f = expand R (p ^ e) g` for some `g`.\n+-/\n+\n+public section\n+\n+namespace Polynomial\n+\n+variable {R : Type*} (p : ℕ) [hp : Fact p.Prime]\n+\n+section Ring\n+\n+variable [Ring R] [CharP R p]\n+\n+/-- In characteristic `p`, the Hasse derivatives of `f` of orders `0 < k < p ^ e` vanish if and\n+only if `p ^ e` divides every exponent of `f`. -/\n+theorem forall_hasseDeriv_eq_zero_iff {e : ℕ} {f : R[X]} :\n+    (∀ k, 0 < k → k < p ^ e → hasseDeriv k f = 0) ↔ ∀ n, f.coeff n ≠ 0 → p ^ e ∣ n := by\n+  have key (c : ℕ) (a : R) : (c : R) * a = 0 ↔ p ∣ c ∨ a = 0 := by\n+    by_cases hc : p ∣ c\n+    · simp [hc, (CharP.cast_eq_zero_iff R p c).2 hc]\n+    · simp [hc, ((CharP.isUnit_natCast_iff (R := R) hp.out).2 hc).mul_right_eq_zero]\n+  simp_rw [hasseDeriv_eq_zero_iff, key, Choose.pow_dvd_iff_forall_dvd_choose (p := p)]\n+  exact ⟨fun h n hn k hk hk' ↦ (h k hk hk' n).resolve_right hn,\n+    fun h k hk hk' n ↦ or_iff_not_imp_right.2 fun hn ↦ h n hn k hk hk'⟩\n+\n+end Ring\n+\n+section CommRing\n+\n+variable [CommRing R] [CharP R p]\n+\n+/-- In characteristic `p`, the Hasse derivatives of `f` of orders `0 < k < p ^ e` vanish if and\n+only if `f` is a polynomial in `X ^ (p ^ e)`. -/\n+theorem forall_hasseDeriv_eq_zero_iff_exists_expand {e : ℕ} {f : R[X]} :\n+    (∀ k, 0 < k → k < p ^ e → hasseDeriv k f = 0) ↔ ∃ g, expand R (p ^ e) g = f := by\n+  have hpe : 0 < p ^ e := pow_pos hp.out.pos e\n+  rw [forall_hasseDeriv_eq_zero_iff]\n+  refine ⟨fun h ↦ ⟨contract (p ^ e) f, ext fun n ↦ ?_⟩, ?_⟩\n+  · rw [coeff_expand hpe, coeff_contract hpe.ne']\n+    split_ifs with hn\n+    · rw [Nat.div_mul_cancel hn]\n+    · exact (not_imp_comm.1 (h n) hn).symm\n+  · rintro ⟨g, rfl⟩ n hn\n+    rw [coeff_expand hpe] at hn\n+    exact of_not_not fun h' ↦ hn (by simp [h'])\n+\n+end CommRing\n+\n+end Polynomial"
+  },
+  {
+   "filename": "Mathlib/Algebra/Polynomial/HasseDeriv.lean",
+   "status": "modified",
+   "additions": 6,
+   "deletions": 0,
+   "patch": "@@ -80,6 +80,12 @@ theorem hasseDeriv_coeff (n : ℕ) :\n   · intro h\n     simp only [notMem_support_iff.mp h, monomial_zero_right, mul_zero, coeff_zero]\n \n+theorem hasseDeriv_eq_zero_iff : hasseDeriv k f = 0 ↔ ∀ n, (n.choose k : R) * f.coeff n = 0 := by\n+  refine ⟨fun h n ↦ ?_, fun h ↦ ext fun n ↦ by rw [hasseDeriv_coeff, coeff_zero, h]⟩\n+  rcases lt_or_ge n k with hn | hn\n+  · simp [Nat.choose_eq_zero_of_lt hn]\n+  · simpa [hasseDeriv_coeff, Nat.sub_add_cancel hn] using congr(coeff $h (n - k))\n+\n theorem hasseDeriv_zero' : hasseDeriv 0 f = f := by\n   simp only [hasseDeriv_apply, Nat.sub_zero, choose_zero_right, cast_one, one_mul, sum_monomial_eq]"
+  },
+  {
+   "filename": "Mathlib/Data/Nat/Choose/Lucas.lean",
+   "status": "modified",
+   "additions": 37,
+   "deletions": 0,
+   "patch": "@@ -22,6 +22,12 @@ respectively.\n \n * `lucas_theorem`: the binomial coefficient `n choose k` is congruent to the product of `n_i choose\n   k_i` modulo `p`, where `n_i` and `k_i` are the base-`p` digits of `n` and `k`, respectively.\n+* `pow_dvd_iff_forall_dvd_choose`: `p ^ e` divides `n` if and only if `p` divides `n choose k` for\n+  all `0 < k < p ^ e`.\n+\n+## References\n+\n+* [É. Lucas, *Théorie des fonctions numériques simplement périodiques*][lucas1878]\n -/\n \n public section\n@@ -132,6 +138,37 @@ theorem choose_pow_mul_pow_mul_modEq_choose_nat :\n   rw [← Int.natCast_modEq_iff]\n   exact_mod_cast choose_pow_mul_pow_mul_modEq_choose\n \n+/-- For primes `p`, `p ^ e` divides `n` if and only if `p` divides `choose n k` for all\n+`0 < k < p ^ e`. -/\n+theorem pow_dvd_iff_forall_dvd_choose {e : ℕ} :\n+    p ^ e ∣ n ↔ ∀ k, 0 < k → k < p ^ e → p ∣ choose n k := by\n+  have hp : p.Prime := Fact.out\n+  constructor\n+  · induction e generalizing n with\n+    | zero => intro _ k hk hk'; lia\n+    | succ e ih =>\n+      intro hn k hk hk'\n+      have hpn : p ∣ n := (dvd_pow_self p e.succ_ne_zero).trans hn\n+      rw [(choose_modEq_choose_mod_mul_choose_div_nat (p := p)).dvd_iff dvd_rfl,\n+        Nat.mod_eq_zero_of_dvd hpn]\n+      by_cases hkp : k % p = 0\n+      · obtain ⟨n, rfl⟩ := hpn\n+        obtain ⟨k, rfl⟩ := Nat.dvd_of_mod_eq_zero hkp\n+        rw [Nat.pow_succ', Nat.mul_dvd_mul_iff_left hp.pos] at hn\n+        rw [Nat.pow_succ', Nat.mul_lt_mul_left hp.pos] at hk'\n+        rw [Nat.mul_div_cancel_left _ hp.pos, Nat.mul_div_cancel_left _ hp.pos]\n+        exact dvd_mul_of_dvd_right (ih hn k (Nat.pos_of_mul_pos_left hk) hk') _\n+      · simp [Nat.choose_eq_zero_of_lt (Nat.pos_of_ne_zero hkp)]\n+  · intro h\n+    by_contra hn\n+    obtain ⟨v, m, hm, rfl⟩ := Nat.exists_eq_pow_mul_and_not_dvd (n := n)\n+      (by rintro rfl; exact hn (dvd_zero _)) p hp.ne_one\n+    have hv : v < e := lt_of_not_ge fun hv ↦ hn ((Nat.pow_dvd_pow p hv).trans (dvd_mul_right _ _))\n+    have := (choose_pow_mul_pow_mul_modEq_choose_nat (p := p) (k := v) (a := m) (b := 1)).dvd_iff\n+      dvd_rfl\n+    rw [mul_one, choose_one_right] at this\n+    exact hm (this.1 (h _ (pow_pos hp.pos v) (Nat.pow_lt_pow_right hp.one_lt hv)))\n+\n /-- For primes `p` and positive integer `n`, assume that for all `i ∈ Icc 1 (n - 1)`,\n `choose n i` congruent to `0` module `p`, then `n = p ^ multiplicity p n`.\n Also see `eq_pow_multiplicity_of_choose_modEq_zero_nat` for the version with `MOD`. -/"
+  },
+  {
+   "filename": "docs/references.bib",
+   "status": "modified",
+   "additions": 11,
+   "deletions": 0,
+   "patch": "@@ -4109,6 +4109,17 @@\n   edition       = {1}\n }\n \n+@Article{         lucas1878,\n+  author        = {Lucas, {\\'E}douard},\n+  title         = {Th{\\'e}orie des fonctions num{\\'e}riques simplement\n+                  p{\\'e}riodiques},\n+  journal       = {American Journal of Mathematics},\n+  volume        = {1},\n+  pages         = {184--240, 289--321},\n+  year          = {1878},\n+  doi           = {10.2307/2369308}\n+}\n+\n @Book{            LurieHTT,\n   title         = {Higher Topos Theory},\n   author        = {Jacob Lurie},"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_threads": null,
+ "checks": null
+}

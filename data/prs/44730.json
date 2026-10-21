@@ -1,0 +1,36 @@
+{
+ "number": 44730,
+ "title": "feat(Analysis/Real/OfDigits): rationals have eventually periodic digits",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/44730",
+ "author": "mycaule",
+ "draft": null,
+ "labels": [
+  "t-analysis"
+ ],
+ "body": "",
+ "head_sha": "fb2ddae6255b24bd385bb9572fd34ea68c356d4e",
+ "base_sha": "2da3ab0a20dc0c66f56a557e37df39f7d36cb953",
+ "created_at": null,
+ "updated_at": "2026-10-14T16:18:23+02:00",
+ "commits": 6,
+ "files": [
+  {
+   "filename": "Mathlib/Analysis/Real/OfDigits.lean",
+   "status": "modified",
+   "additions": 90,
+   "deletions": 0,
+   "patch": "@@ -5,8 +5,10 @@ Authors: Vasilii Nesterov\n -/\n module\n \n+public import Mathlib.Algebra.Ring.Periodic\n public import Mathlib.Analysis.SpecificLimits.Normed\n \n+import Mathlib.Algebra.Order.Floor.Semifield\n import Mathlib.Analysis.Normed.Group.FunctionSeries\n import Mathlib.Tactic.Qify\n import Mathlib.Tactic.Rify\n@@ -26,6 +28,8 @@ representations of reals as sequences of digits in positional system.\n ## Main Statements\n \n * `ofDigits_digits` states that `ofDigits (digits x b) = x`.\n+* `exists_ratCast_eq_iff_digits_eventually_periodic`: a nonnegative real number is rational\n+  if and only if its digits are eventually periodic.\n -/\n \n @[expose] public section\n@@ -217,4 +221,90 @@ theorem continuous_ofDigits {b : ℕ} : Continuous (@ofDigits b) := by\n         _ = _ := by\n           grind\n \n+section Periodic\n+\n+theorem digits_fract {b : ℕ} [NeZero b] {x : ℝ} (hx : 0 ≤ x) :\n+    digits (Int.fract x) b = digits x b := by\n+  ext i\n+  simp only [digits, Fin.val_ofNat]\n+  conv_rhs => rw [← Int.fract_add_floor x, ← natCast_floor_eq_intCast_floor hx]\n+  rw [add_mul, ← Nat.cast_pow, ← Nat.cast_mul,\n+    Nat.floor_add_natCast (mul_nonneg (Int.fract_nonneg x) (Nat.cast_nonneg _)),\n+    pow_succ, ← Nat.mul_assoc, Nat.add_mul_mod_self_right]\n+\n+theorem val_digits_natCast_div {b : ℕ} [NeZero b] (r s n : ℕ) :\n+    (digits ((r : ℝ) / s) b n : ℕ) = r * b ^ n % s * b / s := by\n+  rw [digits, Fin.val_ofNat, ← Nat.mul_div_mod_eq_mod_mul_div]\n+  congr 1\n+  rw [div_mul_eq_mul_div, pow_succ, ← mul_assoc]\n+  exact_mod_cast Nat.floor_div_eq_div (K := ℝ) (r * b ^ n * b) s\n+\n+private lemma exists_periodic_mod_pow (r s b : ℕ) (hs : 0 < s) :\n+    ∃ N c, 0 < c ∧ Function.Periodic (fun d ↦ r * b ^ (N + d) % s) c := by\n+  obtain ⟨i, j, hij, h⟩ := Finite.exists_ne_map_eq_of_infinite\n+    (fun n : ℕ ↦ (⟨r * b ^ n % s, Nat.mod_lt _ hs⟩ : Fin s))\n+  simp only [Fin.mk.injEq] at h\n+  wlog hlt : i < j generalizing i j\n+  · exact this j i hij.symm h.symm (lt_of_le_of_ne (not_lt.1 hlt) hij.symm)\n+  refine ⟨i, j - i, by lia, fun d ↦ ?_⟩\n+  dsimp only\n+  rw [show i + (d + (j - i)) = j + d by lia, pow_add, ← mul_assoc, Nat.mul_mod, ← h,\n+    ← Nat.mul_mod, mul_assoc, ← pow_add]\n+\n+theorem digits_ratCast_eventually_periodic {b : ℕ} [NeZero b] {q : ℚ} (hq : 0 ≤ q) :\n+    ∃ N c, 0 < c ∧ Function.Periodic (fun d ↦ digits (q : ℝ) b (N + d)) c := by\n+  have hx : (q : ℝ) = (q.num.toNat : ℝ) / q.den := by\n+    rw [Rat.cast_def]\n+    congr 1\n+    exact_mod_cast (Int.toNat_of_nonneg (Rat.num_nonneg.2 hq)).symm\n+  obtain ⟨N, c, hc, h⟩ := exists_periodic_mod_pow q.num.toNat q.den b q.den_pos\n+  refine ⟨N, c, hc, fun d ↦ Fin.ext ?_⟩\n+  dsimp only\n+  rw [hx, val_digits_natCast_div, val_digits_natCast_div]\n+  exact congrArg (· * b / q.den) (h d)\n+\n+private lemma exists_ratCast_eq_sum_ofDigitsTerm {b : ℕ} (a : ℕ → Fin b) (n : ℕ) :\n+    ∃ q : ℚ, (q : ℝ) = ∑ i ∈ Finset.range n, ofDigitsTerm a i :=\n+  ⟨∑ i ∈ Finset.range n, ((a i : ℕ) : ℚ) * ((b : ℚ) ^ (i + 1))⁻¹, by simp [ofDigitsTerm]⟩\n+\n+theorem exists_ratCast_eq_ofDigits_of_eventually_periodic {b : ℕ} (hb : 1 < b)\n+    {a : ℕ → Fin b} {N c : ℕ} (hc : 0 < c) (h : Function.Periodic (fun d ↦ a (N + d)) c) :\n+    ∃ q : ℚ, (q : ℝ) = ofDigits a := by\n+  set e : ℕ → Fin b := fun i ↦ a (i + N) with he_def\n+  have he : (fun i ↦ e (i + c)) = e := by\n+    ext1 i\n+    simp only [he_def]\n+    rw [add_comm (i + c) N, add_comm i N]\n+    exact h i\n+  have ht : ((b : ℝ) ^ c)⁻¹ ≠ 1 :=\n+    (inv_lt_one_of_one_lt₀ (one_lt_pow₀ (by exact_mod_cast hb) hc.ne')).ne\n+  have key := ofDigits_eq_sum_add_ofDigits e c\n+  rw [he] at key\n+  obtain ⟨q₁, hq₁⟩ := exists_ratCast_eq_sum_ofDigitsTerm a N\n+  obtain ⟨q₂, hq₂⟩ := exists_ratCast_eq_sum_ofDigitsTerm e c\n+  have he' : ofDigits e = q₂ / (1 - ((b : ℝ) ^ c)⁻¹) := by\n+    rw [eq_div_iff (sub_ne_zero.2 ht.symm), hq₂, eq_sub_of_add_eq key.symm]\n+    ring\n+  refine ⟨q₁ + ((b : ℚ) ^ N)⁻¹ * (q₂ / (1 - ((b : ℚ) ^ c)⁻¹)), ?_⟩\n+  rw [ofDigits_eq_sum_add_ofDigits a N, ← he_def, he', ← hq₁]\n+  push_cast\n+  ring\n+\n+/-- A nonnegative real number is rational if and only if its digits in base `b` are eventually\n+periodic. -/\n+theorem exists_ratCast_eq_iff_digits_eventually_periodic {b : ℕ} [NeZero b] (hb : 1 < b)\n+    {x : ℝ} (hx : 0 ≤ x) :\n+    (∃ q : ℚ, (q : ℝ) = x) ↔\n+      ∃ N c, 0 < c ∧ Function.Periodic (fun d ↦ digits x b (N + d)) c := by\n+  constructor\n+  · rintro ⟨q, rfl⟩\n+    exact digits_ratCast_eventually_periodic (mod_cast hx)\n+  · rintro ⟨N, c, hc, h⟩\n+    rw [← digits_fract hx] at h\n+    obtain ⟨q, hq⟩ := exists_ratCast_eq_ofDigits_of_eventually_periodic hb hc h\n+    rw [ofDigits_digits hb ⟨Int.fract_nonneg x, Int.fract_lt_one x⟩] at hq\n+    exact ⟨q + ⌊x⌋, by push_cast; rw [hq, Int.fract_add_floor]⟩\n+\n+end Periodic\n+\n end Real"
+  },
+  {
+   "filename": "Mathlib/Data/Nat/Init.lean",
+   "status": "modified",
+   "additions": 11,
+   "deletions": 0,
+   "patch": "@@ -100,6 +100,17 @@ lemma div_lt_self' (a b : ℕ) : (a + 1) / (b + 2) < a + 1 :=\n lemma two_mul_odd_div_two (hn : n % 2 = 1) : 2 * (n / 2) = n - 1 := by\n   lia\n \n+lemma mul_div_mod_eq_mod_mul_div (a b n : ℕ) : a * b / n % b = a % n * b / n := by\n+  rcases Nat.eq_zero_or_pos n with rfl | hn\n+  · simp\n+  rcases Nat.eq_zero_or_pos b with rfl | hb\n+  · simp\n+  conv =>\n+    lhs\n+    rw [← Nat.mod_add_div a n, Nat.add_mul, Nat.mul_assoc, Nat.add_mul_div_left _ _ hn,\n+      Nat.add_mul_mod_self_right]\n+  exact Nat.mod_eq_of_lt (Nat.div_lt_of_lt_mul (Nat.mul_lt_mul_of_pos_right (Nat.mod_lt a hn) hb))\n+\n /-! ### `pow` -/\n \n lemma one_le_pow' (n m : ℕ) : 1 ≤ (m + 1) ^ n := one_le_pow n (m + 1) (succ_pos m)"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_threads": null,
+ "checks": null
+}

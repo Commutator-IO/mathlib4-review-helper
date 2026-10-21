@@ -1,0 +1,29 @@
+{
+ "number": 44716,
+ "title": "feat(Algebra/Module/FinitePresentation): characterize Noetherian rings by finitely presented modules",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/44716",
+ "author": "mycaule",
+ "draft": null,
+ "labels": [
+  "t-algebra"
+ ],
+ "body": "",
+ "head_sha": "8e3e0f553030933ab2e9f42febef87290a307be8",
+ "base_sha": "113454bc32fc15317f9e88d2fe1dca45367cdf9f",
+ "created_at": null,
+ "updated_at": "2026-10-14T18:49:01+02:00",
+ "commits": 3,
+ "files": [
+  {
+   "filename": "Mathlib/Algebra/Module/FinitePresentation.lean",
+   "status": "modified",
+   "additions": 19,
+   "deletions": 0,
+   "patch": "@@ -24,6 +24,8 @@ import Mathlib.LinearAlgebra.TensorProduct.Pi\n ## Main results\n \n - `Module.finitePresentation_iff_finite`: If `R` is Noetherian, then f.p. iff f.g. on `R`-modules.\n+- `isNoetherianRing_iff_forall_finitePresentation`: conversely, `R` is Noetherian if every f.g.\n+  `R`-module is f.p.\n \n Suppose `0 → K → M → N → 0` is an exact sequence of `R`-modules.\n \n@@ -313,6 +315,23 @@ instance pi {ι : Type*} (M : ι → Type*)\n \n end Module.FinitePresentation\n \n+universe v in\n+variable (R) in\n+/-- A ring `R` is Noetherian if and only if every finitely generated `R`-module is finitely\n+presented. It suffices to consider modules in any universe in which `R` is small. -/\n+theorem isNoetherianRing_iff_forall_finitePresentation [Small.{v} R] :\n+    IsNoetherianRing R ↔ ∀ (M : Type v) [AddCommGroup M] [Module R M] [Module.Finite R M],\n+      Module.FinitePresentation R M := by\n+  refine ⟨fun _ M _ _ _ ↦ Module.finitePresentation_of_finite R M, fun h ↦ ?_⟩\n+  refine (isNoetherianRing_iff_ideal_fg R).2 fun I ↦ ?_\n+  let e := Shrink.linearEquiv.{v} R (R ⧸ I)\n+  have := Module.Finite.equiv e.symm\n+  have := h (Shrink.{v} (R ⧸ I))\n+  have := Module.FinitePresentation.of_equiv e\n+  have hI := Module.FinitePresentation.fg_ker I.mkQ I.mkQ_surjective\n+  rw [Submodule.ker_mkQ] at hI\n+  exact hI\n+\n end Ring\n \n section CommRing"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_threads": null,
+ "checks": null
+}

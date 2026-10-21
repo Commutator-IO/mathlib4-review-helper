@@ -1,0 +1,29 @@
+{
+ "number": 44726,
+ "title": "feat(CategoryTheory/Idempotents/FunctorExtension): additive functors on the Karoubi envelope",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/44726",
+ "author": "mycaule",
+ "draft": null,
+ "labels": [
+  "t-category-theory"
+ ],
+ "body": "",
+ "head_sha": "041998bfe17bc710c73bc0c7ffe0d256fa633d83",
+ "base_sha": "13e84ecc31a36ebdb9faffafc7019f11c40c26a6",
+ "created_at": null,
+ "updated_at": "2026-10-16T14:28:26+02:00",
+ "commits": 7,
+ "files": [
+  {
+   "filename": "Mathlib/CategoryTheory/Idempotents/FunctorExtension.lean",
+   "status": "modified",
+   "additions": 67,
+   "deletions": 0,
+   "patch": "@@ -20,6 +20,11 @@ when `D` is idempotent complete, we get equivalences\n `karoubiUniversal₂ C D : C ⥤ D ≌ Karoubi C ⥤ Karoubi D`\n and `karoubiUniversal C D : C ⥤ D ≌ Karoubi C ⥤ D`.\n \n+When `C` and `D` are preadditive, a functor `Karoubi C ⥤ D` is additive as soon as its\n+restriction to `C` is (`additive_of_toKaroubi_comp`), so that, when `D` is moreover idempotent\n+complete, the equivalence `karoubiUniversal C D` restricts to an equivalence\n+`karoubiUniversalAdditive C D : C ⥤+ D ≌ Karoubi C ⥤+ D` between categories of additive functors.\n+\n -/\n \n @[expose] public section\n@@ -280,6 +285,68 @@ def whiskeringLeftObjToKaroubiFullyFaithful :\n     change _ ≫ G.map (𝟙 _) = _\n     simp\n \n+variable {C} in\n+theorem Karoubi.hom_eq_decompId_i_comp {P Q : Karoubi C} (f : P ⟶ Q) :\n+    f = P.decompId_i ≫ (toKaroubi C).map f.f ≫ Q.decompId_p := by\n+  ext\n+  simp\n+\n+section Additive\n+\n+variable {C D} [Preadditive C] [Preadditive D]\n+\n+theorem additive_of_toKaroubi_comp (F : Karoubi C ⥤ D) [(toKaroubi C ⋙ F).Additive] :\n+    F.Additive where\n+  map_add {P Q f g} := by\n+    have key (h : P ⟶ Q) : F.map h =\n+        F.map P.decompId_i ≫ (toKaroubi C ⋙ F).map h.f ≫ F.map Q.decompId_p := by\n+      simpa using congr(F.map $(Karoubi.hom_eq_decompId_i_comp h))\n+    rw [key, key f, key g, show (f + g).f = f.f + g.f from rfl, Functor.map_add,\n+      Preadditive.add_comp, Preadditive.comp_add]\n+\n+theorem additive_iff_toKaroubi_comp (F : Karoubi C ⥤ D) :\n+    F.Additive ↔ (toKaroubi C ⋙ F).Additive :=\n+  ⟨fun _ ↦ inferInstance, fun _ ↦ additive_of_toKaroubi_comp F⟩\n+\n+variable (C D) in\n+/-- The precomposition with `toKaroubi C`, as a functor between categories of additive\n+functors. -/\n+def whiskeringLeftToKaroubiAdditive : (Karoubi C ⥤+ D) ⥤ (C ⥤+ D) :=\n+  (additiveFunctor C D).lift\n+    (AdditiveFunctor.forget _ _ ⋙ (Functor.whiskeringLeft C (Karoubi C) D).obj (toKaroubi C))\n+    (fun F ↦ inferInstanceAs (toKaroubi C ⋙ F.obj).Additive)\n+\n+/-- The precomposition with `toKaroubi C` on additive functors is fully faithful. -/\n+def whiskeringLeftToKaroubiAdditiveFullyFaithful :\n+    (whiskeringLeftToKaroubiAdditive C D).FullyFaithful :=\n+  Functor.FullyFaithful.ofCompFaithful (G := AdditiveFunctor.forget _ _)\n+    ((ObjectProperty.fullyFaithfulι _).comp whiskeringLeftObjToKaroubiFullyFaithful)\n+\n+instance : (whiskeringLeftToKaroubiAdditive C D).Full :=\n+  whiskeringLeftToKaroubiAdditiveFullyFaithful.full\n+\n+instance : (whiskeringLeftToKaroubiAdditive C D).Faithful :=\n+  whiskeringLeftToKaroubiAdditiveFullyFaithful.faithful\n+\n+variable [IsIdempotentComplete D]\n+\n+instance : (whiskeringLeftToKaroubiAdditive C D).EssSurj where\n+  mem_essImage G := by\n+    let W := (Functor.whiskeringLeft C (Karoubi C) D).obj (toKaroubi C)\n+    let e : W.obj (W.objPreimage G.obj) ≅ G.obj := W.objObjPreimageIso G.obj\n+    have : (toKaroubi C ⋙ W.objPreimage G.obj).Additive := Functor.additive_of_iso e.symm\n+    exact ⟨⟨_, additive_of_toKaroubi_comp (W.objPreimage G.obj)⟩, ⟨ObjectProperty.isoMk _ e⟩⟩\n+\n+instance : (whiskeringLeftToKaroubiAdditive C D).IsEquivalence where\n+\n+variable (C D) in\n+/-- When `D` is idempotent complete, additive functors `C ⥤ D` are equivalent to additive\n+functors `Karoubi C ⥤ D`. -/\n+noncomputable def karoubiUniversalAdditive : C ⥤+ D ≌ Karoubi C ⥤+ D :=\n+  (whiskeringLeftToKaroubiAdditive C D).asEquivalence.symm\n+\n+end Additive\n+\n end Idempotents\n \n end CategoryTheory"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_threads": null,
+ "checks": null
+}

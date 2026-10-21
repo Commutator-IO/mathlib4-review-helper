@@ -1,0 +1,19 @@
+{
+  "name": "mathlib4-review-helper",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "fetch": "node scripts/fetch.mjs",
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/build.mjs && node scripts/serve.mjs",
+    "test": "node --test scripts/*.test.mjs"
+  },
+  "devDependencies": {
+    "katex": "^0.16.22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Commutator-IO/mathlib4-review-helper.git"
+  }
+}

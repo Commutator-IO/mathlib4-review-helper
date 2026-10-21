@@ -1,0 +1,43 @@
+{
+ "number": 44715,
+ "title": "feat(Algebra/Module/FinitePresentation): `⊗` with a f.p. module commutes with `Π`",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/44715",
+ "author": "mycaule",
+ "draft": null,
+ "labels": [
+  "t-algebra"
+ ],
+ "body": "",
+ "head_sha": "2231d98a62220b3b6de2247e603c6e696f596a9c",
+ "base_sha": "113454bc32fc15317f9e88d2fe1dca45367cdf9f",
+ "created_at": null,
+ "updated_at": "2026-10-18T10:18:16+02:00",
+ "commits": 6,
+ "files": [
+  {
+   "filename": "Mathlib/Algebra/Exact/Basic.lean",
+   "status": "modified",
+   "additions": 16,
+   "deletions": 0,
+   "patch": "@@ -107,6 +107,22 @@ lemma rangeFactorization [One P] (h : MulExact f g) (hg : 1 ∈ Set.range g) :\n     MulExact ((↑) : Set.range f → N) (Set.rangeFactorization g) :=\n   (iff_rangeFactorization hg).1 h\n \n+@[to_additive /-- A product of exact pairs is exact. -/]\n+lemma piMap {ι : Type*} {α β γ : ι → Type*} [∀ i, One (γ i)] {f : ∀ i, α i → β i}\n+    {g : ∀ i, β i → γ i} (h : ∀ i, MulExact (f i) (g i)) : MulExact (Pi.map f) (Pi.map g) := by\n+  refine fun y ↦ ⟨fun hy ↦ ?_, ?_⟩\n+  · choose x hx using fun i ↦ (h i (y i)).1 (congrFun hy i)\n+    exact ⟨x, funext hx⟩\n+  · rintro ⟨x, rfl⟩\n+    exact funext fun i ↦ (h i _).2 ⟨x i, rfl⟩\n+\n+@[to_additive /-- A product of two exact pairs is exact. -/]\n+lemma prodMap {M₁ N₁ P₁ M₂ N₂ P₂ : Type*} [One P₁] [One P₂] {f₁ : M₁ → N₁} {g₁ : N₁ → P₁}\n+    {f₂ : M₂ → N₂} {g₂ : N₂ → P₂} (h₁ : MulExact f₁ g₁) (h₂ : MulExact f₂ g₂) :\n+    MulExact (Prod.map f₁ f₂) (Prod.map g₁ g₂) := by\n+  rintro ⟨y₁, y₂⟩\n+  simp [Set.range_prodMap, h₁ y₁, h₂ y₂]\n+\n end MulExact\n \n end Function"
+  },
+  {
+   "filename": "Mathlib/Algebra/Module/FinitePresentation.lean",
+   "status": "modified",
+   "additions": 52,
+   "deletions": 1,
+   "patch": "@@ -9,8 +9,9 @@ public import Mathlib.LinearAlgebra.LeftExact\n public import Mathlib.RingTheory.Finiteness.Projective\n public import Mathlib.RingTheory.Flat.IsBaseChange\n public import Mathlib.RingTheory.Localization.BaseChange\n+public import Mathlib.LinearAlgebra.TensorProduct.Pi\n \n-import Mathlib.LinearAlgebra.TensorProduct.Pi\n+import Mathlib.Algebra.FiveLemma\n \n /-!\n \n@@ -36,6 +37,9 @@ Suppose `0 → K → M → N → 0` is an exact sequence of `R`-modules.\n - `Module.FinitePresentation.isLocalizedModule_map`: If `M` and `N` are `R`-modules and `M` is f.p.,\n   and `S` is a submonoid of `R`, then `Hom(Mₛ, Nₛ)` is the localization of `Hom(M, N)`.\n \n+- `Module.FinitePresentation.piRightHom_bijective`: If `M` is f.p., then `M ⊗ (Π i, P i)` is\n+  canonically isomorphic to `Π i, (M ⊗ P i)`, for an arbitrary family of modules `P i`.\n+\n \n Also the instances finite + free => f.p. => finite are also provided\n \n@@ -52,6 +56,11 @@ In particular,\n \n For finitely presented algebras, see `Algebra.FinitePresentation`\n in file `Mathlib/RingTheory/FinitePresentation.lean`.\n+\n+## References\n+\n+* [H. Lenzing, *Endlich präsentierbare Moduln*][lenzing1969]: conversely, a module `M` for which\n+  `M ⊗ (Π i, P i) → Π i, (M ⊗ P i)` is bijective for every family `P i` is finitely presented.\n -/\n \n @[expose] public section\n@@ -712,4 +721,46 @@ theorem Module.FinitePresentation.isBaseChange_map (S : Type*) [CommRing S] [Alg\n   · apply lcomp_injective_of_surjective\n     exact LinearMap.lTensor_surjective S hf\n \n+section Pi\n+\n+variable {ι : Type*} (P : ι → Type*) [∀ i, AddCommGroup (P i)] [∀ i, Module R (P i)]\n+\n+variable (R) in\n+lemma Module.piRightHom_bijective_of_finite_free (κ : Type*) [Finite κ] :\n+    Function.Bijective (piRightHom R R (κ → R) P) := by\n+  classical\n+  have := Fintype.ofFinite κ\n+  have key : ⇑(LinearEquiv.piCongrRight fun i ↦\n+        TensorProduct.comm R (κ → R) (P i) ≪≫ₗ piScalarRight R R (P i) κ) ∘\n+        ⇑(piRightHom R R (κ → R) P) =\n+      Equiv.piComm _ ∘ ⇑(TensorProduct.comm R (κ → R) (Π i, P i) ≪≫ₗ\n+        piScalarRight R R (Π i, P i) κ) := by\n+    ext x : 1\n+    induction x with\n+    | tmul a q => ext; simp [Function.swap]\n+    | add x y hx hy =>\n+      simp only [Function.comp_apply, map_add] at hx hy ⊢\n+      rw [hx, hy]\n+      rfl\n+  rw [← EquivLike.comp_bijective _ (LinearEquiv.piCongrRight fun i ↦\n+    TensorProduct.comm R (κ → R) (P i) ≪≫ₗ piScalarRight R R (P i) κ), key]\n+  exact (Equiv.bijective _).comp (LinearEquiv.bijective _)\n+\n+variable (R M) in\n+/-- If `M` is a finitely presented `R`-module, then for any family of `R`-modules `P i`, the\n+canonical map `M ⊗[R] (Π i, P i) → Π i, M ⊗[R] P i` is bijective. -/\n+@[stacks 059K \"(1) ⇒ (2)\"]\n+theorem Module.FinitePresentation.piRightHom_bijective [Module.FinitePresentation R M] :\n+    Function.Bijective (piRightHom R R M P) := by\n+  obtain ⟨n, m, f, g, hf, hfg⟩ := Module.FinitePresentation.exists_fin' R M\n+  exact bijective_of_surjective_of_bijective_of_right_exact (g.rTensor _) (f.rTensor _)\n+    (piMap fun i ↦ g.rTensor (P i)) (piMap fun i ↦ f.rTensor (P i)) _ _ _\n+    (TensorProduct.ext' fun _ _ ↦ by ext; simp) (TensorProduct.ext' fun _ _ ↦ by ext; simp)\n+    (rTensor_exact _ hfg hf) (Function.Exact.piMap fun i ↦ rTensor_exact _ hfg hf)\n+    (piRightHom_bijective_of_finite_free R P _).2 (piRightHom_bijective_of_finite_free R P _)\n+    (rTensor_surjective _ hf)\n+    (by simpa using Function.Surjective.piMap fun i ↦ rTensor_surjective _ hf)\n+\n+end Pi\n+\n end CommRing"
+  },
+  {
+   "filename": "docs/references.bib",
+   "status": "modified",
+   "additions": 10,
+   "deletions": 0,
+   "patch": "@@ -4052,6 +4052,16 @@\n   url           = \"https://websites.math.leidenuniv.nl/algebra/GSchemes.pdf\"\n }\n \n+@Article{         lenzing1969,\n+  author        = {Lenzing, Helmut},\n+  title         = {Endlich pr{\\\"a}sentierbare {M}oduln},\n+  journal       = {Archiv der Mathematik},\n+  volume        = {20},\n+  pages         = {262--266},\n+  year          = {1969},\n+  doi           = {10.1007/BF01899297}\n+}\n+\n @InProceedings{   lewis2019,\n   author        = {Lewis, Robert Y.},\n   title         = {A Formal Proof of {H}ensel's Lemma over the {$p$}-adic"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_threads": null,
+ "checks": null
+}

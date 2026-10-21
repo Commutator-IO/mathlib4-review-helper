@@ -1,0 +1,36 @@
+{
+ "number": 44720,
+ "title": "feat(Probability/Distributions/Geometric): mean and variance",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/44720",
+ "author": "mycaule",
+ "draft": null,
+ "labels": [
+  "t-measure-probability"
+ ],
+ "body": "",
+ "head_sha": "b67a4904ccd283af3990b496dac7e5fcb2e4624d",
+ "base_sha": "8678dc2abc57fefb3ab0153e7c49966cf1829b9b",
+ "created_at": null,
+ "updated_at": "2026-10-15T21:35:15+02:00",
+ "commits": 6,
+ "files": [
+  {
+   "filename": "Mathlib.lean",
+   "status": "modified",
+   "additions": 1,
+   "deletions": 0,
+   "patch": "@@ -6560,6 +6560,7 @@ public import Mathlib.Probability.Distributions.Gaussian.IsGaussianProcess.Indep\n public import Mathlib.Probability.Distributions.Gaussian.Multivariate\n public import Mathlib.Probability.Distributions.Gaussian.Real\n public import Mathlib.Probability.Distributions.Geometric\n+public import Mathlib.Probability.Distributions.Geometric.Moments\n public import Mathlib.Probability.Distributions.Pareto\n public import Mathlib.Probability.Distributions.Poisson.Basic\n public import Mathlib.Probability.Distributions.Poisson.PoissonLimitThm"
+  },
+  {
+   "filename": "Mathlib/Probability/Distributions/Geometric/Moments.lean",
+   "status": "added",
+   "additions": 91,
+   "deletions": 0,
+   "patch": "@@ -0,0 +1,91 @@\n+/-\n+Copyright (c) 2026 Michel Hua. All rights reserved.\n+Released under Apache 2.0 license as described in the file LICENSE.\n+Authors: Michel Hua\n+-/\n+module\n+\n+public import Mathlib.Probability.Distributions.Geometric\n+public import Mathlib.Probability.Moments.Variance\n+\n+import Mathlib.Analysis.SpecificLimits.Normed\n+\n+/-!\n+# Moments of the geometric distribution\n+\n+We compute the mean and the variance of `geometricMeasure p`, the law of the number of failures\n+before the first success in independent trials with success probability `p`.\n+\n+## Main statements\n+\n+* `integral_id_geometricMeasure`: the mean of `geometricMeasure p` is `(1 - p) / p`.\n+* `variance_id_geometricMeasure`: the variance of `geometricMeasure p` is `(1 - p) / p ^ 2`.\n+\n+Both hold for every `p : unitInterval`: for `p = 0`, `geometricMeasure 0 = dirac 0` and both\n+sides vanish.\n+-/\n+\n+public section\n+\n+open MeasureTheory\n+\n+namespace ProbabilityTheory\n+\n+variable {p : unitInterval}\n+\n+private lemma norm_one_sub_lt_one (hp : p ≠ 0) : ‖(1 - p : ℝ)‖ < 1 := by\n+  have : (0 : ℝ) < p := lt_of_le_of_ne p.2.1 fun h ↦ hp (Subtype.ext h.symm)\n+  rw [Real.norm_eq_abs, abs_lt]\n+  constructor <;> linarith [p.2.2]\n+\n+lemma hasSum_coe_mul_geometricMeasure (hp : p ≠ 0) :\n+    HasSum (fun n : ℕ ↦ ((1 - p : ℝ) ^ n * p) * n) ((1 - p) / p) := by\n+  have h := (hasSum_coe_mul_geometric_of_norm_lt_one (norm_one_sub_lt_one hp)).mul_left (p : ℝ)\n+  rw [sub_sub_cancel] at h\n+  have hp' : (p : ℝ) ≠ 0 := fun h ↦ hp (Subtype.ext h)\n+  rw [show (1 - p : ℝ) / p = p * ((1 - p) / p ^ 2) by field_simp]\n+  exact h.congr_fun fun n ↦ by ring\n+\n+lemma hasSum_sq_mul_geometricMeasure (hp : p ≠ 0) :\n+    HasSum (fun n : ℕ ↦ ((1 - p : ℝ) ^ n * p) * (n : ℝ) ^ 2) ((1 - p) * (2 - p) / p ^ 2) := by\n+  have h := (hasSum_sq_mul_geometric_of_norm_lt_one (norm_one_sub_lt_one hp)).mul_left (p : ℝ)\n+  rw [sub_sub_cancel] at h\n+  have hp' : (p : ℝ) ≠ 0 := fun h ↦ hp (Subtype.ext h)\n+  rw [show (1 - p : ℝ) * (2 - p) / p ^ 2 = p * ((1 - p) * (1 + (1 - p)) / p ^ 3) by\n+    field_simp; ring]\n+  exact h.congr_fun fun n ↦ by ring\n+\n+/-- The mean of the geometric distribution with success probability `p` is `(1 - p) / p`. -/\n+lemma integral_id_geometricMeasure : ∫ n, (n : ℝ) ∂geometricMeasure p = (1 - p) / p := by\n+  by_cases hp : p = 0\n+  · simp [geometricMeasure, hp]\n+  rw [integral_geometricMeasure hp]\n+  simpa using (hasSum_coe_mul_geometricMeasure hp).tsum_eq\n+\n+lemma integral_sq_geometricMeasure :\n+    ∫ n, (n : ℝ) ^ 2 ∂geometricMeasure p = (1 - p) * (2 - p) / p ^ 2 := by\n+  by_cases hp : p = 0\n+  · simp [geometricMeasure, hp]\n+  rw [integral_geometricMeasure hp]\n+  simpa using (hasSum_sq_mul_geometricMeasure hp).tsum_eq\n+\n+lemma memLp_two_id_geometricMeasure : MemLp (fun n : ℕ ↦ (n : ℝ)) 2 (geometricMeasure p) := by\n+  by_cases hp : p = 0\n+  · simp only [geometricMeasure, hp, ne_eq, not_true_eq_false, ↓reduceIte]\n+    exact .of_bound (by fun_prop) 0 ((ae_dirac_iff .of_discrete).2 (by simp))\n+  refine (memLp_two_iff_integrable_sq (by fun_prop)).2 ?_\n+  rw [integrable_geometricMeasure_iff hp]\n+  simpa using (hasSum_sq_mul_geometricMeasure hp).summable\n+\n+/-- The variance of the geometric distribution with success probability `p`\n+is `(1 - p) / p ^ 2`. -/\n+lemma variance_id_geometricMeasure :\n+    Var[fun n : ℕ ↦ (n : ℝ); geometricMeasure p] = (1 - p) / p ^ 2 := by\n+  rw [variance_eq_sub memLp_two_id_geometricMeasure]\n+  simp only [Pi.pow_apply, integral_sq_geometricMeasure, integral_id_geometricMeasure]\n+  by_cases hp : (p : ℝ) = 0\n+  · simp [hp]\n+  field_simp\n+  ring\n+\n+end ProbabilityTheory"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_threads": null,
+ "checks": null
+}

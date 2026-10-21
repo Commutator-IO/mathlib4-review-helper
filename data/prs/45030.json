@@ -1,0 +1,29 @@
+{
+ "number": 45030,
+ "title": "feat(Topology/CompactOpen): continuity of curry and uncurry for `R1Space` domains",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/45030",
+ "author": "mycaule",
+ "draft": null,
+ "labels": [
+  "t-topology"
+ ],
+ "body": "",
+ "head_sha": "72a4c0f7d669ea13f7239084ddf5cbf2df80ac89",
+ "base_sha": "bdece672cbbf25e2f8f77f6238d6cd5438246f5d",
+ "created_at": null,
+ "updated_at": "2026-10-19T15:59:58+02:00",
+ "commits": 2,
+ "files": [
+  {
+   "filename": "Mathlib/Topology/CompactOpen.lean",
+   "status": "modified",
+   "additions": 34,
+   "deletions": 11,
+   "patch": "@@ -21,12 +21,13 @@ topological spaces.\n   It is declared as an instance.\n * `ContinuousMap.coev` is the coevaluation map `Y → C(X, Y × X)`. It is always continuous.\n * `ContinuousMap.curry` is the currying map `C(X × Y, Z) → C(X, C(Y, Z))`. This map always exists\n-  and it is continuous as long as `X × Y` is locally compact.\n+  and it is continuous as long as `X` is locally compact or an `R1Space`.\n * `ContinuousMap.uncurry` is the uncurrying map `C(X, C(Y, Z)) → C(X × Y, Z)`. For this map to\n-  exist, we need `Y` to be locally compact. If `X` is also locally compact, then this map is\n-  continuous.\n+  exist, we need `Y` to be locally compact. If `X` is also locally compact, or an `R1Space`, then\n+  this map is continuous.\n * `Homeomorph.curry` combines the currying and uncurrying operations into a homeomorphism\n-  `C(X × Y, Z) ≃ₜ C(X, C(Y, Z))`. This homeomorphism exists if `X` and `Y` are locally compact.\n+  `C(X × Y, Z) ≃ₜ C(X, C(Y, Z))`. This homeomorphism exists if `X` and `Y` are locally compact;\n+  `Homeomorph.curryOfR1Space` is the variant for `X` an `R1Space` and `Y` locally compact.\n \n \n ## Tags\n@@ -424,8 +425,8 @@ end Coev\n \n section Curry\n \n-/-- The curried form of a continuous map `α × β → γ` as a continuous map `α → C(β, γ)`.\n-If `a × β` is locally compact, this is continuous. If `α` and `β` are both locally\n+/-- The curried form of a continuous map `X × Y → Z` as a continuous map `X → C(Y, Z)`.\n+If `X` is locally compact or an `R1Space`, this is continuous. If `X` and `Y` are both locally\n compact, then this is a homeomorphism, see `Homeomorph.curry`. -/\n def curry (f : C(X × Y, Z)) : C(X, C(Y, Z)) where\n   toFun a := ⟨Function.curry f a, f.continuous.comp <| by fun_prop⟩\n@@ -447,12 +448,21 @@ theorem continuousOn_of_continuousOn_uncurry {s : Set X} (f : X → C(Y, Z))\n     h.comp_continuous (continuous_subtype_val.prodMap continuous_id) (fun x ↦ ⟨x.1.2, trivial⟩)\n \n /-- The currying process is a continuous map between function spaces. -/\n-theorem continuous_curry [LocallyCompactSpace (X × Y)] :\n+theorem continuous_curry [LocallyCompactSpace X] :\n     Continuous (curry : C(X × Y, Z) → C(X, C(Y, Z))) := by\n-  apply continuous_of_continuous_uncurry\n-  apply continuous_of_continuous_uncurry\n-  rw [← (Homeomorph.prodAssoc _ _ _).symm.comp_continuous_iff']\n-  exact continuous_eval\n+  refine continuous_of_continuous_uncurry _ <| continuous_iff_continuousAt.2 fun ⟨f, x⟩ ↦\n+    tendsto_nhds_compactOpen.2 fun L hL U hU hxL ↦ ?_\n+  obtain ⟨C, hCx, hCU, hC⟩ := local_compact_nhds <|\n+    hL.eventually_forall_of_forall_eventually (P := fun x' y ↦ f (x', y) ∈ U) fun y hy ↦\n+      f.continuous.continuousAt.preimage_mem_nhds (hU.mem_nhds (hxL hy))\n+  exact ((eventually_mapsTo (hC.prod hL) hU fun p hp ↦ hCU hp.1 p.2 hp.2).prod_nhds hCx).mono\n+    fun p hp y hy ↦ hp.1 ⟨hp.2, hy⟩\n+\n+theorem continuous_curry_of_r1Space [R1Space X] :\n+    Continuous (curry : C(X × Y, Z) → C(X, C(Y, Z))) :=\n+  continuous_iff_continuousAt.2 fun f ↦ (tendsto_compactOpen_iff_forall _ _).2 fun K hK ↦\n+    have := isCompact_iff_compactSpace.1 hK\n+    (continuous_curry.comp (continuous_precomp ((restrict K (.id X)).prodMap (.id Y)))).tendsto f\n \n /-- The uncurried form of a continuous map `X → C(Y, Z)` is a continuous map `X × Y → Z`. -/\n theorem continuous_uncurry_of_continuous [LocallyCompactSpace Y] (f : C(X, C(Y, Z))) :\n@@ -475,6 +485,13 @@ theorem continuous_uncurry [LocallyCompactSpace X] [LocallyCompactSpace Y] :\n   dsimp [Function.comp_def]\n   exact (continuous_fst.fst.eval continuous_fst.snd).eval continuous_snd\n \n+theorem continuous_uncurry_of_r1Space [R1Space X] [LocallyCompactSpace Y] :\n+    Continuous (uncurry : C(X, C(Y, Z)) → C(X × Y, Z)) :=\n+  continuous_iff_continuousAt.2 fun g ↦ (tendsto_compactOpen_iff_forall _ _).2 fun M hM ↦\n+    have := isCompact_iff_compactSpace.1 (hM.image continuous_fst)\n+    let φ : C(M, (Prod.fst '' M) × Y) := ⟨fun p ↦ (⟨_, mem_image_of_mem _ p.2⟩, p.1.2), by fun_prop⟩\n+    (((continuous_precomp φ).comp continuous_uncurry).comp (continuous_restrict _)).tendsto g\n+\n /-- The family of constant maps: `Y → C(X, Y)` as a continuous map. -/\n def const' : C(Y, C(X, Y)) :=\n   curry ContinuousMap.fst\n@@ -557,6 +574,12 @@ def curry [LocallyCompactSpace X] [LocallyCompactSpace Y] : C(X × Y, Z) ≃ₜ\n   ⟨⟨ContinuousMap.curry, uncurry, by intro; ext; rfl, by intro; ext; rfl⟩,\n     continuous_curry, continuous_uncurry⟩\n \n+/-- Currying as a homeomorphism between the function spaces `C(X × Y, Z)` and `C(X, C(Y, Z))`,\n+for `X` an `R1Space` (for instance a Hausdorff space) and `Y` locally compact. -/\n+def curryOfR1Space [R1Space X] [LocallyCompactSpace Y] : C(X × Y, Z) ≃ₜ C(X, C(Y, Z)) :=\n+  ⟨⟨ContinuousMap.curry, uncurry, by intro; ext; rfl, by intro; ext; rfl⟩,\n+    continuous_curry_of_r1Space, continuous_uncurry_of_r1Space⟩\n+\n /-- If `X` has a single element, then `Y` is homeomorphic to `C(X, Y)`. -/\n def continuousMapOfUnique [Unique X] : Y ≃ₜ C(X, Y) where\n   toFun := const X"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_threads": null,
+ "checks": null
+}
