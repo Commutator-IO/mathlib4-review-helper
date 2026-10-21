@@ -1,0 +1,29 @@
+{
+ "number": 44813,
+ "title": "feat(MeasureTheory/Integral): layer cake formula for ENNReal-valued function",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/44813",
+ "author": "wwylele",
+ "draft": null,
+ "labels": [
+  "t-measure-probability"
+ ],
+ "body": "",
+ "head_sha": "67181c01bea1cbe31279cc910ff25ef0175dce0e",
+ "base_sha": "54c01c3314d33d15d77893cbe4e0472ff26bb34d",
+ "created_at": null,
+ "updated_at": "2026-10-12T21:01:53-04:00",
+ "commits": 2,
+ "files": [
+  {
+   "filename": "Mathlib/MeasureTheory/Integral/Layercake.lean",
+   "status": "modified",
+   "additions": 22,
+   "deletions": 0,
+   "patch": "@@ -454,6 +454,28 @@ theorem lintegral_eq_lintegral_meas_le (μ : Measure α) (f_nn : 0 ≤ᵐ[μ] f)\n   congr with ω\n   simp only [intervalIntegral.integral_const, sub_zero, smul_eq_mul, mul_one]\n \n+/-- The standard case of the layer cake formula / Cavalieri's principle / tail probability formula\n+for an `ENNReal`-valued function. -/\n+theorem lintegral_eq_lintegral_measure_ofReal_le (μ : Measure α) {f : α → ℝ≥0∞}\n+    (hf : AEMeasurable f μ) :\n+    ∫⁻ x, f x ∂μ = ∫⁻ t in Ioi 0, μ {x | .ofReal t ≤ f x} := by\n+  by_cases h : f =ᵐ[μ] fun x ↦ .ofReal (f x).toReal\n+  · rw [lintegral_congr_ae h, lintegral_eq_lintegral_meas_le μ (.of_forall (by simp)) (by fun_prop)]\n+    congr with t\n+    apply measure_eq_measure_of_null_sdiff\n+    · refine ofPred_subset_ofPred.mpr fun x hx ↦ ?_\n+      grw [hx, ENNReal.ofReal_toReal_le]\n+    · refine measure_mono_null (fun x ↦ ?_) (aeEq_iff.mp h)\n+      simp only [Set.mem_sdiff, mem_ofPred_eq, not_le, ne_eq, and_imp]\n+      rw [← ENNReal.ofReal_lt_ofReal_iff_of_nonneg (by simp)]\n+      grind\n+  · have h' : μ {x | f x = ∞} ≠ 0 := by grind [ENNReal.ofReal_toReal_eq_iff, aeEq_iff]\n+    rw [lintegral_eq_top_of_measure_eq_top_ne_zero hf h', Eq.comm, ← top_le_iff]\n+    trans ∫⁻ (t : ℝ) in Ioi 0, μ {x | f x = ∞}\n+    · simp [h']\n+    · gcongr\n+      simp +contextual\n+\n end Layercake\n \n section LayercakeLT"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_comments": null,
+ "checks": null
+}

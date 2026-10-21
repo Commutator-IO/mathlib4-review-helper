@@ -185,7 +185,7 @@ function prPage(a) {
               toc.push({ id, label, key: sg.key, kind: sg.kind, note: !!sg.note, hints: sg.hints.length });
               const doc = docstring(sg.lines.filter((l) => l.k !== '-'));
               const explain = sg.note
-                ? `<div class="note">${markdown(sg.note, ctx)}</div>`
+                ? `<div class="note">${sg.shared ? '<p class="muted small">Shared note for the declarations of this PR without their own:</p>' : ''}${markdown(sg.note, ctx)}</div>`
                 : `<div class="note missing"><p class="muted">No transcription for this declaration yet.</p>${doc ? `<p class="muted">Its docstring:</p><blockquote>${markdown(doc, ctx)}</blockquote>` : ''}</div>`;
               return `<article class="decl" id="${id}" data-key="${esc(sg.key)}" data-name="${esc(label)}" data-file="${esc(file.filename)}" data-from="${first}" data-to="${last}">
 <div class="decl-code">

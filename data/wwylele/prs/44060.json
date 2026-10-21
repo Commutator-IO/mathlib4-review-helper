@@ -1,0 +1,37 @@
+{
+ "number": 44060,
+ "title": "feat(Geometry/Euclidean): lemma about excenters and volumes",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/44060",
+ "author": "wwylele",
+ "draft": null,
+ "labels": [
+  "maintainer-merge",
+  "t-euclidean-geometry"
+ ],
+ "body": "",
+ "head_sha": "073082d89f5bae5b1ec4b7f458061b612e0bd557",
+ "base_sha": "074063781836922cb02701cd12943c9f51731afa",
+ "created_at": null,
+ "updated_at": "2026-10-13T22:47:39-04:00",
+ "commits": 6,
+ "files": [
+  {
+   "filename": "Mathlib.lean",
+   "status": "modified",
+   "additions": 1,
+   "deletions": 0,
+   "patch": "@@ -4821,6 +4821,7 @@ public import Mathlib.Geometry.Euclidean.Sphere.Tangent\n public import Mathlib.Geometry.Euclidean.Triangle\n public import Mathlib.Geometry.Euclidean.Volume.Basic\n public import Mathlib.Geometry.Euclidean.Volume.Def\n+public import Mathlib.Geometry.Euclidean.Volume.Incenter\n public import Mathlib.Geometry.Euclidean.Volume.Measure\n public import Mathlib.Geometry.Euclidean.Volume.MeasureSimplex\n public import Mathlib.Geometry.Group.Growth.LinearLowerBound"
+  },
+  {
+   "filename": "Mathlib/Geometry/Euclidean/Volume/Incenter.lean",
+   "status": "added",
+   "additions": 111,
+   "deletions": 0,
+   "patch": "@@ -0,0 +1,111 @@\n+/-\n+Copyright (c) 2026 Weiyi Wang. All rights reserved.\n+Released under Apache 2.0 license as described in the file LICENSE.\n+Authors: Weiyi Wang\n+-/\n+module\n+\n+public import Mathlib.Geometry.Euclidean.Incenter.Basic\n+public import Mathlib.Geometry.Euclidean.Volume.Def\n+\n+import Mathlib.Geometry.Euclidean.Volume.Basic\n+\n+/-!\n+\n+# Incenters, excenters, and volumes of simplices\n+\n+This file explores the interaction between incenters, excenters, and volumes of simplices. It shows\n+that the volumes of faces are weights to characterize excenters, and the volume of the simplex can\n+be calculated using exradius.\n+\n+## Main declarations\n+* `Affine.Simplex.excenterWeightsFace` are volumes of faces attached with a sign. These are\n+  proportional to `Affine.Simplex.excenterWeights`. (See\n+  `Affine.Simplex.excenterWeights_eq_excenterWeightsFace_div`)\n+* `Affine.Simplex.ExcenterExists.volume_eq_exradius_mul`: the volume of the simplex is the product\n+  of `Affine.Simplex.exradius` and the sum of `Affine.Simplex.excenterWeightsFace`, divided by\n+  the dimension.\n+* `Affine.Simplex.volume_eq_inradius_mul`: the volume of the simplex is the product of\n+  `Affine.Simplex.inradius` and the surface area, divided by the dimension.\n+\n+-/\n+\n+@[expose] public section\n+\n+namespace Affine.Simplex\n+\n+variable {V P : Type*} [NormedAddCommGroup V] [InnerProductSpace ℝ V] [MetricSpace P]\n+  [NormedAddTorsor V P] {n : ℕ} [NeZero n] (s : Simplex ℝ P n) (signs : Finset (Fin (n + 1)))\n+  (i : Fin (n + 1))\n+\n+/--\n+Similar to `Affine.Simplex.excenterWeightsUnnorm`, these are unnormalized weights whose affine\n+combination gives an excenter with the signs determined by the given set of indices. It is defined\n+as the volume of the `Affine.Simplex.faceOpposite` attached with a sign.\n+-/\n+noncomputable def excenterWeightsFace : ℝ :=\n+  (if i ∈ signs then -1 else 1) * (s.faceOpposite i).volume\n+\n+theorem excenterWeightsFace_ne_zero : s.excenterWeightsFace signs i ≠ 0 := by\n+  unfold excenterWeightsFace\n+  positivity\n+\n+@[simp]\n+theorem excenterWeightsFace_empty : s.excenterWeightsFace ∅ i = (s.faceOpposite i).volume := by\n+  simp [excenterWeightsFace]\n+\n+theorem excenterWeightsFace_eq_volume_mul_excenterWeightsUnnorm :\n+    s.excenterWeightsFace signs i = n * s.volume * s.excenterWeightsUnnorm signs i := by\n+  rw [s.volume_eq i, excenterWeightsUnnorm, excenterWeightsFace]\n+  field [‹NeZero n›.ne]\n+\n+theorem excenterWeightsFace_reindex {m : ℕ} [NeZero m] (e : Fin (n + 1) ≃ Fin (m + 1))\n+    (signs : Finset (Fin (m + 1))) :\n+    (s.reindex e).excenterWeightsFace signs =\n+      s.excenterWeightsFace (Finset.map e.symm.toEmbedding signs) ∘ e.symm := by\n+  have h : n = m := by simpa using Fin.equiv_iff_eq.mp ⟨e⟩\n+  ext\n+  simp [excenterWeightsFace_eq_volume_mul_excenterWeightsUnnorm, excenterWeightsUnnorm_reindex, h]\n+\n+@[simp]\n+theorem excenterWeightsFace_map {P₂ : Type*} [MetricSpace P₂] [NormedAddTorsor V P₂]\n+    (f : P →ᵃⁱ[ℝ] P₂) :\n+    (s.map f.toAffineMap f.injective).excenterWeightsFace = s.excenterWeightsFace := by\n+  ext\n+  simp [excenterWeightsFace]\n+\n+@[simp]\n+theorem excenterWeightsFace_restrict (S : AffineSubspace ℝ P)\n+    (hS : affineSpan ℝ (Set.range s.points) ≤ S) :\n+    haveI := Nonempty.map (AffineSubspace.inclusion hS) inferInstance\n+    (s.restrict S hS).excenterWeightsFace = s.excenterWeightsFace := by\n+  have := Nonempty.map (AffineSubspace.inclusion hS) inferInstance\n+  ext\n+  simp [excenterWeightsFace, faceOpposite_restrict]\n+\n+theorem excenterExists_iff_sum_excenterWeightsFace_ne_zero :\n+    s.ExcenterExists signs ↔ ∑ i, s.excenterWeightsFace signs i ≠ 0 := by\n+  simp [excenterWeightsFace_eq_volume_mul_excenterWeightsUnnorm, ← Finset.mul_sum,\n+    ExcenterExists, ‹NeZero n›.ne, s.volume_pos.ne']\n+\n+theorem excenterWeights_eq_excenterWeightsFace_div :\n+    s.excenterWeights signs i =\n+      s.excenterWeightsFace signs i / ∑ j, s.excenterWeightsFace signs j := by\n+  simp_rw [excenterWeightsFace_eq_volume_mul_excenterWeightsUnnorm, ← Finset.mul_sum,\n+    excenterWeights, Pi.smul_apply, smul_eq_mul]\n+  field [‹NeZero n›.ne]\n+\n+variable {s signs} in\n+theorem ExcenterExists.volume_eq_exradius_mul (h : s.ExcenterExists signs) :\n+    s.volume = (↑n)⁻¹ * s.exradius signs * |∑ i, s.excenterWeightsFace signs i| := by\n+  have : |∑ i, s.excenterWeightsUnnorm signs i| ≠ 0 := by simpa [ExcenterExists] using h\n+  simp_rw [excenterWeightsFace_eq_volume_mul_excenterWeightsUnnorm, ← Finset.mul_sum, abs_mul,\n+    exradius_eq_abs_inv_sum, abs_inv, Nat.abs_cast, abs_of_nonneg s.volume_pos.le]\n+  field [‹NeZero n›.ne]\n+\n+theorem volume_eq_inradius_mul :\n+    s.volume = (↑n)⁻¹ * s.inradius * ∑ i, (s.faceOpposite i).volume := by\n+  have : 0 < ∑ x, (s.faceOpposite x).volume := by positivity\n+  simpa [abs_of_nonneg this.le] using s.excenterExists_empty.volume_eq_exradius_mul\n+\n+end Affine.Simplex"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_comments": null,
+ "checks": null
+}

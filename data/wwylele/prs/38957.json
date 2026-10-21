@@ -1,0 +1,31 @@
+{
+ "number": 38957,
+ "title": "chore(GroupTheory/DivisibleHull): remove `backward.privateInPublic`",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/38957",
+ "author": "wwylele",
+ "draft": null,
+ "labels": [
+  "awaiting-zulip",
+  "t-group-theory",
+  "tech debt"
+ ],
+ "body": "",
+ "head_sha": "5a4b157d975f9eedffe98b8ad235ae4ab80dc14d",
+ "base_sha": "62aaa5c959a8c5cf491a22073ce59e97f7de5595",
+ "created_at": null,
+ "updated_at": "2026-07-06T09:54:35-04:00",
+ "commits": 6,
+ "files": [
+  {
+   "filename": "Mathlib/GroupTheory/DivisibleHull.lean",
+   "status": "modified",
+   "additions": 5,
+   "deletions": 12,
+   "patch": "@@ -247,7 +247,6 @@ end Group\n section LinearOrder\n variable {M : Type*} [AddCommMonoid M] [LinearOrder M] [IsOrderedCancelAddMonoid M]\n \n-set_option backward.privateInPublic true in\n private theorem lift_aux (m n m' n' : M) (s t s' t' : ℕ+)\n     (h : mk m s = mk m' s') (h' : mk n t = mk n' t') :\n     (t.val • m ≤ s.val • n) = (t'.val • m' ≤ s'.val • n') := by\n@@ -259,10 +258,8 @@ private theorem lift_aux (m n m' n' : M) (s t s' t' : ℕ+)\n   · simp_rw [smul_smul, ← mul_rotate s'.val, ← smul_smul, ← h', smul_smul]\n     ring_nf\n \n-set_option backward.privateInPublic true in\n-set_option backward.privateInPublic.warn false in\n instance : LE (DivisibleHull M) where\n-  le x y := liftOn₂ x y (fun m s n t ↦ t.val • m ≤ s.val • n) lift_aux\n+  le x y := liftOn₂ x y (fun m s n t ↦ t.val • m ≤ s.val • n) (by exact lift_aux)\n \n @[simp]\n theorem mk_le_mk {m m' : M} {s s' : ℕ+} :\n@@ -360,14 +357,12 @@ theorem archimedeanClassMk_mk_eq (m : M) (s s' : ℕ+) :\n     exact this\n   simp_rw [zsmul_mk, mk_eq_mk_iff_smul_eq_smul, natCast_zsmul, smul_smul, mul_comm s'.val]\n \n-set_option backward.privateInPublic true in\n variable (M) in\n /-- Forward direction of `archimedeanClassOrderIso`. -/\n private noncomputable\n def archimedeanClassOrderHom : ArchimedeanClass M →o ArchimedeanClass (DivisibleHull M) :=\n   ArchimedeanClass.orderHom (coeOrderAddMonoidHom M)\n \n-set_option backward.privateInPublic true in\n /-- See `archimedeanClassOrderIso_symm_apply` for public API. -/\n private theorem aux_archimedeanClassMk_mk (m : M) (s : ℕ+) :\n     ArchimedeanClass.mk (mk m s) = archimedeanClassOrderHom M (ArchimedeanClass.mk m) := by\n@@ -379,7 +374,6 @@ private theorem aux_archimedeanClassOrderHom_injective :\n     Function.Injective (archimedeanClassOrderHom M) :=\n   ArchimedeanClass.orderHom_injective coe_injective\n \n-set_option backward.privateInPublic true in\n variable (M) in\n /-- Backward direction of `archimedeanClassOrderIso`. -/\n private noncomputable\n@@ -396,11 +390,9 @@ def archimedeanClassOrderHomInv : ArchimedeanClass (DivisibleHull M) →o Archim\n       simpa using ((archimedeanClassOrderHom M).monotone.strictMono_of_injective\n         aux_archimedeanClassOrderHom_injective).le_iff_le.mp h)\n \n-set_option backward.privateInPublic true in\n-set_option backward.privateInPublic.warn false in\n variable (M) in\n /-- The Archimedean classes of `DivisibleHull M` are the same as those of `M`. -/\n-noncomputable\n+@[no_expose] noncomputable\n def archimedeanClassOrderIso : ArchimedeanClass M ≃o ArchimedeanClass (DivisibleHull M) := by\n   apply OrderIso.ofHomInv (archimedeanClassOrderHom M) (archimedeanClassOrderHomInv M)\n   · ext a\n@@ -415,11 +407,12 @@ def archimedeanClassOrderIso : ArchimedeanClass M ≃o ArchimedeanClass (Divisib\n \n @[simp]\n theorem archimedeanClassOrderIso_apply (a : ArchimedeanClass M) :\n-    archimedeanClassOrderIso M a = ArchimedeanClass.orderHom (coeOrderAddMonoidHom M) a := rfl\n+    archimedeanClassOrderIso M a = ArchimedeanClass.orderHom (coeOrderAddMonoidHom M) a := (rfl)\n \n @[simp]\n theorem archimedeanClassOrderIso_symm_apply (m : M) (s : ℕ+) :\n-    (archimedeanClassOrderIso M).symm (ArchimedeanClass.mk (mk m s)) = ArchimedeanClass.mk m := rfl\n+    (archimedeanClassOrderIso M).symm (ArchimedeanClass.mk (mk m s)) = ArchimedeanClass.mk m :=\n+  (rfl)\n \n end OrderedGroup"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_comments": null,
+ "checks": null
+}

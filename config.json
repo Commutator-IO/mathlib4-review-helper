@@ -1,7 +1,9 @@
 {
   "repo": "leanprover-community/mathlib4",
   "authors": [
-    "mycaule"
+    "mycaule",
+    "themathqueen",
+    "wwylele"
   ],
   "issuesRepo": "Commutator-IO/mathlib4-review-helper",
   "siteTitle": "mathlib4 review helper",

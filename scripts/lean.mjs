@@ -17,7 +17,7 @@ const KEYWORDS = new Set(
   extends deriving namespace section end variable open export universe noncomputable private
   protected partial unsafe nonrec mutual scoped local attribute set_option in import
   fun λ let have show from by at with match if then else do return for calc suffices
-  termination_by decreasing_by omit include irreducible_def macro syntax notation
+  termination_by decreasing_by omit include irreducible_def proof_wanted public meta module macro syntax notation
   infix infixl infixr prefix postfix elab`.split(/\s+/),
 );
 
@@ -161,9 +161,9 @@ export function parsePatch(patch) {
 // ---------------------------------------------------------------------------
 // Declarations
 
-const MODIFIERS = '(?:(?:private|protected|noncomputable|nonrec|partial|unsafe|scoped)\\s+)*';
+const MODIFIERS = '(?:(?:public|private|protected|noncomputable|nonrec|partial|unsafe|scoped|meta)\\s+)*';
 const DECL_RE = new RegExp(
-  `^(?:@\\[[^\\]]*\\]\\s*)*${MODIFIERS}(theorem|lemma|def|abbrev|instance|structure|class|inductive|example|opaque|axiom|irreducible_def)\\b\\s*(?:\\([^)]*\\)\\s*)?(«[^»]*»|[^\\s:({\\[⦃]*)`,
+  `^(?:@\\[[^\\]]*\\]\\s*)*${MODIFIERS}(theorem|lemma|def|abbrev|instance|structure|class|inductive|example|opaque|axiom|irreducible_def|proof_wanted)\\b\\s*(?:\\([^)]*\\)\\s*)?(«[^»]*»|[^\\s:({\\[⦃]*)`,
 );
 /** Column-0 lines that still belong to the declaration above them. */
 const CONTINUATION = /^(\||where\b|deriving\b|termination_by\b|decreasing_by\b|\)|\]|\})/;

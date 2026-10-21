@@ -1,0 +1,46 @@
+{
+ "number": 43115,
+ "title": "chore(Analysis/Normed/Operator/ContinuousAlgEquiv): generalize theorem to TVS",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/43115",
+ "author": "themathqueen",
+ "draft": null,
+ "labels": [
+  "blocked-by-other-PR",
+  "merge-conflict",
+  "t-analysis",
+  "tech debt"
+ ],
+ "body": "",
+ "head_sha": "7113c786538f20dc80812bbdc0ef81ddd80e4845",
+ "base_sha": "119110c22e0aa2a593e559f4818d009e04194933",
+ "created_at": null,
+ "updated_at": "2026-08-25T20:31:30+01:00",
+ "commits": 7,
+ "files": [
+  {
+   "filename": "Mathlib/Analysis/Normed/Operator/Bilinear.lean",
+   "status": "modified",
+   "additions": 9,
+   "deletions": 2,
+   "patch": "@@ -241,7 +241,8 @@ variable [RingHomIsometric σ₁₂]\n /-- The continuous semilinear map obtained by applying a continuous semilinear map at a given\n vector.\n \n-This is the continuous version of `LinearMap.applyₗ`. -/\n+This is the continuous version of `applyₗ'` (and the fully continuous version of\n+`LinearMap.applyₗ`). -/\n def apply' : E →SL[σ₁₂] (E →SL[σ₁₂] F) →L[𝕜₂] F :=\n   flip (.id 𝕜₂ (E →SL[σ₁₂] F))\n \n@@ -251,12 +252,14 @@ variable {F σ₁₂}\n theorem apply_apply' (v : E) (f : E →SL[σ₁₂] F) : apply' F σ₁₂ v f = f v :=\n   rfl\n \n+@[simp] lemma toLinearMap_apply' : (apply' (E := E) F σ₁₂).toLinearMap = applyₗ' F σ₁₂ := rfl\n+\n variable (𝕜 Fₗ)\n \n /-- The continuous semilinear map obtained by applying a continuous semilinear map at a given\n vector.\n \n-This is the continuous version of `LinearMap.applyₗ`. -/\n+This is the continuous version of `applyₗ` (and fully continuous version of `LinearMap.applyₗ`). -/\n def apply : E →L[𝕜] (E →L[𝕜] Fₗ) →L[𝕜] Fₗ :=\n   flip (.id 𝕜 (E →L[𝕜] Fₗ))\n \n@@ -266,6 +269,8 @@ variable {𝕜 Fₗ}\n theorem apply_apply (v : E) (f : E →L[𝕜] Fₗ) : apply 𝕜 Fₗ v f = f v :=\n   rfl\n \n+@[simp] lemma toLinearMap_apply : (apply 𝕜 (E := E) Fₗ).toLinearMap = applyₗ 𝕜 Fₗ := rfl\n+\n variable (σ₁₂ σ₂₃ E F G)\n \n \n@@ -437,6 +442,8 @@ def smulRightL : StrongDual 𝕜 E →L[𝕜] Fₗ →L[𝕜] E →L[𝕜] Fₗ\n       simp only [coe_smulRightₗ, one_mul, norm_smulRight_apply, LinearMap.coe_mk, AddHom.coe_mk,\n         le_refl]\n \n+@[simp] lemma toLinearMap_smulRightL : (smulRightL 𝕜 E Fₗ).toLinearMap = smulRightₗ' 𝕜 E Fₗ := rfl\n+\n end ContinuousLinearMap\n \n end SemiNormed"
+  },
+  {
+   "filename": "Mathlib/Analysis/Normed/Operator/ContinuousAlgEquiv.lean",
+   "status": "modified",
+   "additions": 7,
+   "deletions": 8,
+   "patch": "@@ -30,11 +30,11 @@ The proof follows the same idea as the non-continuous version.\n open ContinuousLinearMap ContinuousLinearEquiv\n \n section\n-variable {𝕜 V W : Type*} [NontriviallyNormedField 𝕜] [SeminormedAddCommGroup V]\n-  [SeminormedAddCommGroup W] [NormedSpace 𝕜 V] [NormedSpace 𝕜 W] [SeparatingDual 𝕜 V]\n-  [SeparatingDual 𝕜 W]\n+variable {𝕜 V W : Type*} [NontriviallyNormedField 𝕜] [AddCommGroup V] [AddCommGroup W]\n+  [TopologicalSpace V] [IsTopologicalAddGroup V] [TopologicalSpace W] [IsTopologicalAddGroup W]\n+  [Module 𝕜 V] [Module 𝕜 W] [SeparatingDual 𝕜 V] [SeparatingDual 𝕜 W]\n+  [ContinuousSMul 𝕜 V] [ContinuousSMul 𝕜 W]\n \n-set_option backward.isDefEq.respectTransparency.types false in\n /-- This is the continuous version of `AlgEquiv.eq_linearEquivConjAlgEquiv`. -/\n public theorem ContinuousAlgEquiv.eq_continuousLinearEquivConjContinuousAlgEquiv\n     (f : (V →L[𝕜] V) ≃A[𝕜] (W →L[𝕜] W)) :\n@@ -66,7 +66,7 @@ public theorem ContinuousAlgEquiv.eq_continuousLinearEquivConjContinuousAlgEquiv\n       ContinuousLinearMap.ext_iff, not_forall, smulRight_apply, zero_apply,\n       smul_eq_zero_iff_left hu]\n     exact ⟨u, huv⟩\n-  set T := apply' _ (.id 𝕜) z ∘L f.toContinuousAlgHom.toContinuousLinearMap ∘L smulRightL 𝕜 _ _ v\n+  set T := applyₗ 𝕜 _ z ∘L f.toContinuousAlgHom.toContinuousLinearMap ∘L smulRightₗ' 𝕜 _ _ v\n   have hT x : T x = f (smulRight v x) z := rfl\n   have this A x : T (A x) = f A (T x) := by\n     simp only [hT, ← mul_apply_eq_comp, ← map_mul]\n@@ -80,14 +80,13 @@ public theorem ContinuousAlgEquiv.eq_continuousLinearEquivConjContinuousAlgEquiv\n       simp [← this, hxy]\n     simpa [huv.isUnit.smul_left_cancel] using congr((fun f ↦ f u) $h_smul)\n   set Tₗ : V ≃ₗ[𝕜] W := .ofBijective T.toLinearMap ⟨inj, surj⟩\n-  set T' := apply' _ (.id 𝕜) u ∘L f.symm.toContinuousAlgHom.toContinuousLinearMap ∘L\n-    smulRightL 𝕜 _ _ d\n+  set T' := applyₗ _ _ u ∘L f.symm.toContinuousAlgHom.toContinuousLinearMap ∘L smulRightₗ' 𝕜 _ _ d\n   set TL : V ≃L[𝕜] W := { Tₗ with\n     continuous_toFun := T.continuous\n     continuous_invFun := by\n       change Continuous Tₗ.symm.toLinearMap\n       suffices T'.toLinearMap = Tₗ.symm from this ▸ T'.continuous\n-      simp [LinearMap.ext_iff, ← Tₗ.injective.eq_iff, T', this, hT, hd, Tₗ] }\n+      ext; simp [← Tₗ.injective.eq_iff, T', this, hT, hd, Tₗ, LinearEquiv.ofBijective] }\n   exact ⟨TL, fun A ↦ (ContinuousLinearMap.ext <| this A).symm⟩\n \n variable (𝕜 V W) in"
+  },
+  {
+   "filename": "Mathlib/Topology/Algebra/Module/Spaces/ContinuousLinearMap.lean",
+   "status": "modified",
+   "additions": 42,
+   "deletions": 1,
+   "patch": "@@ -470,8 +470,9 @@ def prodL : ((E →L[𝕜] F) × (E →L[𝕜] G)) ≃L[S] (E →L[𝕜] F × G)\n end Prod\n \n variable {𝕜 E : Type*} [NontriviallyNormedField 𝕜] [AddCommGroup E] [Module 𝕜 E]\n-  [TopologicalSpace E] [IsTopologicalAddGroup E] [ContinuousSMul 𝕜 E]\n+  [TopologicalSpace E]\n \n+variable [IsTopologicalAddGroup E] [ContinuousSMul 𝕜 E] in\n /-- `ContinuousLinearMap.toSpanSingleton` as a continuous linear equivalence. -/\n @[simps!]\n def toSpanSingletonCLE : E ≃L[𝕜] (𝕜 →L[𝕜] E) where\n@@ -480,6 +481,22 @@ def toSpanSingletonCLE : E ≃L[𝕜] (𝕜 →L[𝕜] E) where\n     continuous_snd.smul continuous_fst\n   continuous_invFun := continuous_eval_const 1\n \n+variable {F : Type*} [AddCommGroup F] [Module 𝕜 F] [TopologicalSpace F]\n+  [IsTopologicalAddGroup F] [ContinuousSMul 𝕜 F]\n+\n+variable (𝕜 E F) in\n+/-- `smulRight` as a partly continuous trilinear map.\n+This is the bundled continuous version of `smulRightₗ`. -/\n+@[simps! apply_apply_apply] def smulRightₗ' : StrongDual 𝕜 E →ₗ[𝕜] (F →L[𝕜] E →L[𝕜] F) where\n+  toFun c := (c.precomp F) ∘SL toSpanSingletonCLE.toContinuousLinearMap\n+  map_add' _ _ := by ext; simp\n+  map_smul' _ _ := by ext; simp\n+\n+@[simp] lemma smulRightₗ'_apply_apply (c : StrongDual 𝕜 E) (x) :\n+    c.smulRightₗ' 𝕜 E F x = c.smulRight x := rfl\n+@[simp] lemma toLinearMap_smulRightₗ'_apply (c : StrongDual 𝕜 E) :\n+    (c.smulRightₗ' 𝕜 E F).toLinearMap = c.smulRightₗ := rfl\n+\n end ContinuousLinearMap\n \n open ContinuousLinearMap\n@@ -518,6 +535,21 @@ def arrowCongrSL (e₁₂ : E ≃SL[σ₁₂] F) (e₄₃ : H ≃SL[σ₄₃] G)\n     continuous_invFun := ((precomp H e₁₂.toContinuousLinearMap).comp\n       (postcomp F e₄₃.symm.toContinuousLinearMap)).continuous }\n \n+variable (F σ₁₂) in\n+/-- The partly continuous semilinear map obtained by applying a continuous semilinear map\n+at a given vector.\n+\n+See `applyₗ` for the linear version. -/\n+@[simps apply_apply] def _root_.ContinuousLinearMap.applyₗ'\n+    [ContinuousSMul 𝕜 E] [IsTopologicalAddGroup F] [ContinuousConstSMul 𝕜₂ F] :\n+    E →ₛₗ[σ₁₂] (E →SL[σ₁₂] F) →L[𝕜₂] F where\n+  toFun x :=\n+    { toFun f := f x\n+      map_add' _ _ := rfl\n+      map_smul' _ _ := rfl }\n+  map_add' _ _ := by ext; simp\n+  map_smul' _ _ := by ext; simp\n+\n end Semilinear\n \n section Linear\n@@ -565,6 +597,15 @@ theorem conjContinuousAlgEquiv_trans [IsTopologicalAddGroup E] [ContinuousConstS\n     (e.trans f).conjContinuousAlgEquiv = e.conjContinuousAlgEquiv.trans f.conjContinuousAlgEquiv :=\n   rfl\n \n+variable (𝕜 F) in\n+/-- The partly continuous linear map obtained by applying a continuous linear map\n+at a given vector.\n+\n+See `applyₗ'` for the semilinear version. -/\n+@[simps! apply_apply] def _root_.ContinuousLinearMap.applyₗ [ContinuousSMul 𝕜 E]\n+    [IsTopologicalAddGroup F] [ContinuousConstSMul 𝕜 F] :\n+    E →ₗ[𝕜] (E →L[𝕜] F) →L[𝕜] F := applyₗ' F (.id 𝕜)\n+\n end Linear\n \n end ContinuousLinearEquiv"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_comments": null,
+ "checks": null
+}

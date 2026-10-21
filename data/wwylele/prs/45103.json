@@ -1,0 +1,29 @@
+{
+ "number": 45103,
+ "title": "feat(Analysis/Gamma): a convenient `‖Gamma s‖ ≤ ‖Gamma (s + n)‖`",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/45103",
+ "author": "wwylele",
+ "draft": null,
+ "labels": [
+  "t-analysis"
+ ],
+ "body": "",
+ "head_sha": "aa0179a8304b6d1b641b520264e827739aff9a5d",
+ "base_sha": "6d442b50c0ae2cde369cd21de31907e228545df8",
+ "created_at": null,
+ "updated_at": "2026-10-20T20:33:28-04:00",
+ "commits": 1,
+ "files": [
+  {
+   "filename": "Mathlib/Analysis/SpecialFunctions/Gamma/Beta.lean",
+   "status": "modified",
+   "additions": 21,
+   "deletions": 0,
+   "patch": "@@ -450,6 +450,27 @@ theorem Gamma_eq_zero_iff (s : ℂ) : Gamma s = 0 ↔ ∃ m : ℕ, s = -m := by\n   · contrapose!; exact Gamma_ne_zero\n   · rintro ⟨m, rfl⟩; exact Gamma_neg_nat_eq_zero m\n \n+theorem norm_Gamma_le_norm_Gamma_iff (s : ℂ) :\n+    ‖Gamma s‖ ≤ ‖Gamma (s + 1)‖ ↔ s = 0 ∨ 1 ≤ ‖s‖ := by\n+  by_cases hs : Gamma s = 0\n+  · grind [Nat.cast_eq_zero, norm_neg, RCLike.norm_natCast, Nat.one_le_cast]\n+  have hs0 : s ≠ 0 := fun h ↦ by simp [h] at hs\n+  rw [Gamma_add_one _ hs0, norm_mul, le_mul_iff_one_le_left (by simp [hs])]\n+  simp [hs0]\n+\n+theorem norm_Gamma_le_norm_Gamma_add_one {s : ℂ} (hs : 1 ≤ ‖s‖) :\n+    ‖Gamma s‖ ≤ ‖Gamma (s + 1)‖ :=\n+  (norm_Gamma_le_norm_Gamma_iff s).mpr <| Or.inr hs\n+\n+/-- This bound is not tight and is provided for convenience. -/\n+theorem norm_Gamma_le_norm_Gamma_add_of_one_le_re {s : ℂ} (hs : 1 ≤ s.re) (n : ℕ) :\n+    ‖Gamma s‖ ≤ ‖Gamma (s + n)‖ := by\n+  induction n with\n+  | zero => simp\n+  | succ n ih =>\n+    grw [ih, norm_Gamma_le_norm_Gamma_add_one (le_trans (by simp; grind) (Complex.re_le_norm _))]\n+    simp [add_assoc]\n+\n /-- A weaker, but easier-to-apply, version of `Complex.Gamma_ne_zero`. -/\n theorem Gamma_ne_zero_of_re_pos {s : ℂ} (hs : 0 < re s) : Gamma s ≠ 0 := by\n   refine Gamma_ne_zero fun m => ?_"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_comments": null,
+ "checks": null
+}

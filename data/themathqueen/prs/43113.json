@@ -1,0 +1,36 @@
+{
+ "number": 43113,
+ "title": "feat(Topology/Algebra/Module/Spaces/CLM): linear map version of `smulRightL`",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/43113",
+ "author": "themathqueen",
+ "draft": null,
+ "labels": [
+  "t-topology"
+ ],
+ "body": "",
+ "head_sha": "c6f0c9df69b5faf3e9f8a2d70a705a0006a2d9f5",
+ "base_sha": "119110c22e0aa2a593e559f4818d009e04194933",
+ "created_at": null,
+ "updated_at": "2026-08-25T20:19:39+01:00",
+ "commits": 2,
+ "files": [
+  {
+   "filename": "Mathlib/Analysis/Normed/Operator/Bilinear.lean",
+   "status": "modified",
+   "additions": 2,
+   "deletions": 0,
+   "patch": "@@ -437,6 +437,8 @@ def smulRightL : StrongDual 𝕜 E →L[𝕜] Fₗ →L[𝕜] E →L[𝕜] Fₗ\n       simp only [coe_smulRightₗ, one_mul, norm_smulRight_apply, LinearMap.coe_mk, AddHom.coe_mk,\n         le_refl]\n \n+@[simp] lemma toLinearMap_smulRightL : (smulRightL 𝕜 E Fₗ).toLinearMap = smulRightₗ' 𝕜 E Fₗ := rfl\n+\n end ContinuousLinearMap\n \n end SemiNormed"
+  },
+  {
+   "filename": "Mathlib/Topology/Algebra/Module/Spaces/ContinuousLinearMap.lean",
+   "status": "modified",
+   "additions": 18,
+   "deletions": 1,
+   "patch": "@@ -470,8 +470,9 @@ def prodL : ((E →L[𝕜] F) × (E →L[𝕜] G)) ≃L[S] (E →L[𝕜] F × G)\n end Prod\n \n variable {𝕜 E : Type*} [NontriviallyNormedField 𝕜] [AddCommGroup E] [Module 𝕜 E]\n-  [TopologicalSpace E] [IsTopologicalAddGroup E] [ContinuousSMul 𝕜 E]\n+  [TopologicalSpace E]\n \n+variable [IsTopologicalAddGroup E] [ContinuousSMul 𝕜 E] in\n /-- `ContinuousLinearMap.toSpanSingleton` as a continuous linear equivalence. -/\n @[simps!]\n def toSpanSingletonCLE : E ≃L[𝕜] (𝕜 →L[𝕜] E) where\n@@ -480,6 +481,22 @@ def toSpanSingletonCLE : E ≃L[𝕜] (𝕜 →L[𝕜] E) where\n     continuous_snd.smul continuous_fst\n   continuous_invFun := continuous_eval_const 1\n \n+variable {F : Type*} [AddCommGroup F] [Module 𝕜 F] [TopologicalSpace F]\n+  [IsTopologicalAddGroup F] [ContinuousSMul 𝕜 F]\n+\n+variable (𝕜 E F) in\n+/-- `smulRight` as a partly continuous trilinear map.\n+This is the bundled continuous version of `smulRightₗ`. -/\n+@[simps! apply_apply_apply] def smulRightₗ' : StrongDual 𝕜 E →ₗ[𝕜] (F →L[𝕜] E →L[𝕜] F) where\n+  toFun c := (c.precomp F) ∘SL toSpanSingletonCLE.toContinuousLinearMap\n+  map_add' _ _ := by ext; simp\n+  map_smul' _ _ := by ext; simp\n+\n+@[simp] lemma smulRightₗ'_apply_apply (c : StrongDual 𝕜 E) (x) :\n+    c.smulRightₗ' 𝕜 E F x = c.smulRight x := rfl\n+@[simp] lemma toLinearMap_smulRightₗ'_apply (c : StrongDual 𝕜 E) :\n+    (c.smulRightₗ' 𝕜 E F).toLinearMap = c.smulRightₗ := rfl\n+\n end ContinuousLinearMap\n \n open ContinuousLinearMap"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_comments": null,
+ "checks": null
+}

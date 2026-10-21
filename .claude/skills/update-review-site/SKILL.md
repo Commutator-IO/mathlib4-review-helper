@@ -66,8 +66,9 @@ npm run notes-todo -- --author <login> --out <scratch>/diffs
 ```
 
 It lists, per PR: no notes file, notes written for an older head, declarations
-without a section, sections that match nothing; and writes one
-`<scratch>/diffs/<number>.diff` per PR needing work. It also lists notes of PRs
+without a section, sections that match nothing, and the PRs it is stacked on
+(found by comparing diffs); and writes one `<scratch>/diffs/<number>.diff` per
+PR needing work, with that information at the top. It also lists notes of PRs
 that are no longer open; delete those files only when the user agrees, or when
 the PR is merged or closed.
 
@@ -80,8 +81,11 @@ and what a **Check.** may say.
 - A handful of PRs: write them yourself.
 - More: split them into groups of about 8, by topic (the `t-…` labels), and
   give each group to a parallel subagent, with the path of `notes-brief.md`,
-  the diff directory and the PR numbers. Ask each for its list of **Check.**
-  lines.
+  the diff directory and the PR numbers. Keep a stack (a PR and the PRs it is
+  stacked on) in one group, lower PRs first. Give a very long PR (100+
+  declarations) a subagent of its own. Refactors touching many declarations
+  the same way get a `## *` section (see the brief). Ask each subagent for its
+  list of **Check.** lines.
 
 Then re-run `npm run notes-todo -- --author <login>` and fix what it still
 lists (usually a heading typed differently from the code) until it prints that

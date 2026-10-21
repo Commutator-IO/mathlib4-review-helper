@@ -1,0 +1,58 @@
+{
+ "number": 41220,
+ "title": "feat(Geometry/Euclidean): two formula for area of a triangle",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/41220",
+ "author": "wwylele",
+ "draft": null,
+ "labels": [
+  "maintainer-merge",
+  "t-euclidean-geometry"
+ ],
+ "body": "",
+ "head_sha": "e9c0e4a341a26d2a2f7b76355a79b1a09667795a",
+ "base_sha": "074063781836922cb02701cd12943c9f51731afa",
+ "created_at": null,
+ "updated_at": "2026-10-13T22:47:33-04:00",
+ "commits": 10,
+ "files": [
+  {
+   "filename": "Mathlib.lean",
+   "status": "modified",
+   "additions": 1,
+   "deletions": 0,
+   "patch": "@@ -4823,6 +4823,7 @@ public import Mathlib.Geometry.Euclidean.Volume.Basic\n public import Mathlib.Geometry.Euclidean.Volume.Def\n public import Mathlib.Geometry.Euclidean.Volume.Measure\n public import Mathlib.Geometry.Euclidean.Volume.MeasureSimplex\n+public import Mathlib.Geometry.Euclidean.Volume.Triangle\n public import Mathlib.Geometry.Group.Growth.LinearLowerBound\n public import Mathlib.Geometry.Group.Growth.QuotientInter\n public import Mathlib.Geometry.Group.WordMetric"
+  },
+  {
+   "filename": "Mathlib/Geometry/Euclidean/Angle/Unoriented/Affine.lean",
+   "status": "modified",
+   "additions": 15,
+   "deletions": 0,
+   "patch": "@@ -524,4 +524,19 @@ theorem collinear_of_sin_eq_zero {p₁ p₂ p₃ : P} (h : Real.sin (∠ p₁ p\n   contrapose\n   exact sin_ne_zero_of_not_collinear\n \n+/-- When `q`, `r` and `s` are collinear, `∠ p r q` and `∠ p r s` are either equal or complementary,\n+so their `Real.sin` are equal. -/\n+theorem _root_.Collinear.sin_angle_eq_right (p : P) {q r s : P} (h : Collinear ℝ {q, r, s})\n+    (hqr : q ≠ r) (hrs : r ≠ s) : Real.sin (∠ p r q) = Real.sin (∠ p r s) := by\n+  rcases h.wbtw_or_wbtw_or_wbtw with h | h | h\n+  · suffices ∠ p r q = π - ∠ p r s by rw [this, Real.sin_pi_sub]\n+    rw [eq_sub_iff_add_eq, angle_add_angle_eq_pi_of_angle_eq_pi]\n+    exact Sbtw.angle₁₂₃_eq_pi ⟨h, hqr.symm, hrs⟩\n+  · rw [h.angle_eq_right p hrs.symm]\n+  · rw [h.symm.angle_eq_right p hqr]\n+\n+theorem _root_.Collinear.sin_angle_eq_left (p : P) {q r s : P} (h : Collinear ℝ {q, r, s})\n+    (hqr : q ≠ r) (hrs : r ≠ s) : Real.sin (∠ q r p) = Real.sin (∠ s r p) := by\n+  rw [angle_comm q r p, angle_comm s r p, h.sin_angle_eq_right p hqr hrs]\n+\n end EuclideanGeometry"
+  },
+  {
+   "filename": "Mathlib/Geometry/Euclidean/Angle/Unoriented/Projection.lean",
+   "status": "modified",
+   "additions": 20,
+   "deletions": 0,
+   "patch": "@@ -8,6 +8,8 @@ module\n public import Mathlib.Geometry.Euclidean.Angle.Unoriented.Affine\n public import Mathlib.Geometry.Euclidean.Projection\n \n+import Mathlib.Geometry.Euclidean.Angle.Unoriented.RightAngle\n+\n /-!\n # Angles and orthogonal projection.\n \n@@ -41,4 +43,22 @@ open scoped Real\n     ∠ p' (orthogonalProjection s p) p = π / 2 := by\n   rw [angle_comm, angle_self_orthogonalProjection p h]\n \n+theorem dist_orthogonalProjection_eq_sin_mul_dist (p : P) {q : P} {s : AffineSubspace ℝ P}\n+    [s.direction.HasOrthogonalProjection] (h : q ∈ s) :\n+    haveI : Nonempty s := ⟨q, h⟩\n+    dist p (orthogonalProjection s p) =\n+      Real.sin (∠ p q (orthogonalProjection s p).val) * dist p q := by\n+  rw [angle_comm, sin_angle_mul_dist_of_angle_eq_pi_div_two <| angle_self_orthogonalProjection p h]\n+\n+theorem dist_orthogonalProjection_eq_sin_mul_dist_of_collinear (p : P) {q r : P}\n+    {s : AffineSubspace ℝ P} [s.direction.HasOrthogonalProjection] (hq : q ∈ s) (hr : r ∈ s)\n+    (hcollinear : haveI : Nonempty s := ⟨q, hq⟩; Collinear ℝ {(orthogonalProjection s p).val, q, r})\n+    (hqr : q ≠ r) :\n+    haveI : Nonempty s := ⟨q, hq⟩\n+    dist p (orthogonalProjection s p) = Real.sin (∠ p q r) * dist p q := by\n+  have : Nonempty s := ⟨q, hq⟩\n+  by_cases! hpq : orthogonalProjection s p = q\n+  · simp [← hpq, angle_self_orthogonalProjection p hr]\n+  rw [dist_orthogonalProjection_eq_sin_mul_dist p hq, hcollinear.sin_angle_eq_right p hpq hqr]\n+\n end EuclideanGeometry"
+  },
+  {
+   "filename": "Mathlib/Geometry/Euclidean/Triangle.lean",
+   "status": "modified",
+   "additions": 23,
+   "deletions": 0,
+   "patch": "@@ -5,9 +5,11 @@ Authors: Joseph Myers, Manuel Candales\n -/\n module\n \n+public import Mathlib.Geometry.Euclidean.Altitude\n public import Mathlib.Geometry.Euclidean.Angle.Oriented.Affine\n \n import Mathlib.Analysis.Normed.Affine.AddTorsor\n+import Mathlib.Geometry.Euclidean.Angle.Unoriented.Projection\n \n /-!\n # Triangles\n@@ -531,3 +533,24 @@ lemma angle_lt_pi_div_three_of_le_of_le_of_ne {p₁ p₂ p₃ : P} (h₂₃₁ :\n       linarith [angle_add_angle_add_angle_eq_pi p₃ h]\n \n end EuclideanGeometry\n+\n+namespace Affine.Triangle\n+open Simplex EuclideanGeometry\n+\n+variable {V P : Type*}\n+variable [NormedAddCommGroup V] [InnerProductSpace ℝ V] [MetricSpace P] [NormedAddTorsor V P]\n+variable (t : Triangle ℝ P) {i₁ i₂ i₃ : Fin 3}\n+\n+/-- The height of a triangle is equal to the sine of a side angle times the same side. -/\n+theorem height_eq_sin_mul_dist (h₁₂ : i₁ ≠ i₂) (h₁₃ : i₁ ≠ i₃) (h₂₃ : i₂ ≠ i₃) :\n+    t.height i₁ = Real.sin (∠ (t.points i₁) (t.points i₂) (t.points i₃)) *\n+      dist (t.points i₁) (t.points i₂) := by\n+  refine dist_orthogonalProjection_eq_sin_mul_dist_of_collinear (t.points i₁) ?_ ?_ ?_ ?_\n+  · simp [h₁₂.symm]\n+  · simp [h₁₃.symm]\n+  · apply collinear_insert_of_mem_affineSpan_pair\n+    convert! t.altitudeFoot_mem_affineSpan_image_compl i₁\n+    grind\n+  · exact t.independent.injective.ne h₂₃\n+\n+end Affine.Triangle"
+  },
+  {
+   "filename": "Mathlib/Geometry/Euclidean/Volume/Triangle.lean",
+   "status": "added",
+   "additions": 49,
+   "deletions": 0,
+   "patch": "@@ -0,0 +1,49 @@\n+/-\n+Copyright (c) 2026 Weiyi Wang. All rights reserved.\n+Released under Apache 2.0 license as described in the file LICENSE.\n+Authors: Weiyi Wang\n+-/\n+module\n+\n+public import Mathlib.Geometry.Euclidean.Angle.Unoriented.Affine\n+public import Mathlib.Geometry.Euclidean.Volume.Def\n+\n+import Mathlib.Geometry.Euclidean.Triangle\n+import Mathlib.Geometry.Euclidean.Volume.Basic\n+\n+/-!\n+# Area of a triangle\n+\n+This file collects formulas for the area of a triangle and other related results.\n+\n+## Main theorems\n+\n+* `Affine.Triangle.volume_eq_height_mul`: $S = \\frac{1}{2}hb$\n+* `Affine.Triangle.volume_eq_mul_sin`: $S = \\frac{1}{2}ab \\sin C$\n+-/\n+\n+public section\n+\n+namespace Affine.Triangle\n+\n+open Simplex EuclideanGeometry\n+\n+variable {V P : Type*}\n+variable [NormedAddCommGroup V] [InnerProductSpace ℝ V] [MetricSpace P] [NormedAddTorsor V P]\n+variable (t : Triangle ℝ P) {i₁ i₂ i₃ : Fin 3} (h₁₂ : i₁ ≠ i₂) (h₁₃ : i₁ ≠ i₃) (h₂₃ : i₂ ≠ i₃)\n+\n+include h₁₂ h₁₃ h₂₃ in\n+theorem volume_eq_height_mul : t.volume = 2⁻¹ * t.height i₁ * dist (t.points i₂) (t.points i₃) := by\n+  let e : Fin 3 ≃ Fin 3 := List.Nodup.getEquivOfForallMemList [i₁, i₂, i₃] (by grind) (by grind)\n+  let s := t.reindex e.symm\n+  suffices s.volume = 2⁻¹ * s.height 0 * dist (s.points 1) (s.points 2) by simpa [s]\n+  simp [s.volume_eq 0, volume_eq_dist, faceOpposite_point_eq_point_succAbove]\n+\n+include h₁₂ h₁₃ h₂₃ in\n+theorem volume_eq_mul_sin :\n+    t.volume = 2⁻¹ * dist (t.points i₁) (t.points i₂) * dist (t.points i₂) (t.points i₃) *\n+      Real.sin (∠ (t.points i₁) (t.points i₂) (t.points i₃)) := by\n+  rw [t.volume_eq_height_mul h₁₂ h₁₃ h₂₃, t.height_eq_sin_mul_dist h₁₂ h₁₃ h₂₃]\n+  ring\n+\n+end Affine.Triangle"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_comments": null,
+ "checks": null
+}

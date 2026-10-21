@@ -56,6 +56,11 @@ test('declHead reads names and leaves anonymous instances unnamed', () => {
   assert.deepEqual(declHead('instance : Foo X := ⟨⟩'), { kind: 'instance', name: '' });
   assert.deepEqual(declHead('noncomputable instance instFoo : Foo X'), { kind: 'instance', name: 'instFoo' });
   assert.equal(declHead('  theorem indented'), null);
+  // The module system's visibility modifiers, and `proof_wanted`.
+  assert.deepEqual(declHead('public theorem StarHom.foo'), { kind: 'theorem', name: 'StarHom.foo' });
+  assert.deepEqual(declHead('@[simp] public noncomputable def bar : X'), { kind: 'def', name: 'bar' });
+  assert.deepEqual(declHead('proof_wanted Matrix.baz {K : Type*}'), { kind: 'proof_wanted', name: 'Matrix.baz' });
+  assert.equal(declHead('public section'), null);
 });
 
 test('hints: non-terminal simp, missing def docstring, not inside comments', () => {

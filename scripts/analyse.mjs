@@ -53,11 +53,21 @@ export const BUCKETS = [
 export function analyse(pr) {
   const notesPath = join(ROOT, 'notes', `${pr.number}.md`);
   const notes = existsSync(notesPath) ? parseNotes(readFileSync(notesPath, 'utf8')) : null;
-  // A stacked PR (`stacked-on: <number>` in its notes) reuses the notes of the PR below it.
-  const below = notes?.['stacked-on'] && join(ROOT, 'notes', `${notes['stacked-on']}.md`);
-  if (below && existsSync(below)) {
-    for (const [k, v] of parseNotes(readFileSync(below, 'utf8')).decls) if (!notes.decls.has(k)) notes.decls.set(k, v);
+  // A stacked PR (`stacked-on: <number> [<number>…]` in its notes) borrows the sections of
+  // the PRs below it, and of the PRs below those, for the declarations it repeats.
+  const borrow = (n, seen) => {
+    const p = join(ROOT, 'notes', `${n}.md`);
+    if (seen.has(n) || !existsSync(p)) return;
+    seen.add(n);
+    const below = parseNotes(readFileSync(p, 'utf8'));
+    for (const [k, v] of below.decls) if (k !== '*' && !notes.decls.has(k)) notes.decls.set(k, v);
+    for (const m of (below['stacked-on'] ?? '').split(/[\s,]+/).filter(Boolean)) borrow(m, seen);
+  };
+  if (notes?.['stacked-on']) {
+    const seen = new Set([String(pr.number)]);
+    for (const m of notes['stacked-on'].split(/[\s,]+/).filter(Boolean)) borrow(m, seen);
   }
+
   // Sections are consumed in order, so same-named declarations get their own.
   const taken = new Map();
   const take = (k) => {
@@ -86,13 +96,17 @@ export function analyse(pr) {
       segs: segment(h.lines, h.header).map((sg) => {
         const changed = sg.lines.some((l) => l.k !== ' ' && l.s.trim() !== '');
         const key = `${file.filename}::${sg.name || sg.kind}@${sg.lines.find((l) => l.new)?.new ?? 0}`;
-        return { ...sg, changed, key, hints: hints(sg, file), note: sg.kind === 'other' ? null : noteFor(sg.name || (sg.kind === 'instance' ? 'instance' : '')) };
+        const own = sg.kind === 'other' ? null : noteFor(sg.name || (sg.kind === 'instance' ? 'instance' : ''));
+        // `## *` describes, once, the change shared by every declaration without its own section
+        // (a rename, a generalisation across a refactor).
+        const shared = !own && sg.kind !== 'other' && changed ? notes?.decls.get('*')?.[0] ?? null : null;
+        return { ...sg, changed, key, hints: hints(sg, file), note: own ?? shared, shared: !!shared };
       }),
     }));
     return { ...file, hunks, fileHints: fileHints(file, hunks) };
   });
   const decls = files.flatMap((f) => f.hunks.flatMap((h) => h.segs.filter((s) => s.kind !== 'other' && s.changed)));
-  const unmatched = notes ? [...notes.decls].filter(([k, v]) => (taken.get(k) ?? 0) < v.length).map(([k]) => k) : [];
+  const unmatched = notes ? [...notes.decls].filter(([k, v]) => k !== '*' && (taken.get(k) ?? 0) < v.length).map(([k]) => k) : [];
   const hintCount = files.reduce((n, f) => n + f.fileHints.length + f.hunks.reduce((m, h) => m + h.segs.reduce((k, s) => k + s.hints.length, 0), 0), 0);
   return {
     pr,

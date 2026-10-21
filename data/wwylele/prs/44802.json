@@ -1,0 +1,44 @@
+{
+ "number": 44802,
+ "title": "feat(MeasureTheory/Lebesgue): one-dimensional Brunn–Minkowski theorem",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/44802",
+ "author": "wwylele",
+ "draft": null,
+ "labels": [
+  "LLM-generated",
+  "t-measure-probability"
+ ],
+ "body": "",
+ "head_sha": "4a2214d87b823834bd7843037b67b368a32e74af",
+ "base_sha": "4e6064a4a3a617a3ba6739b50152b02e4d6ad3ea",
+ "created_at": null,
+ "updated_at": "2026-10-15T10:35:51-04:00",
+ "commits": 4,
+ "files": [
+  {
+   "filename": "Mathlib/MeasureTheory/Measure/Interval.lean",
+   "status": "modified",
+   "additions": 57,
+   "deletions": 0,
+   "patch": "@@ -63,6 +63,32 @@ theorem tendsto_measure_Ici_atBot [(atBot : Filter α).IsCountablyGenerated]\n     (μ : Measure α) : Tendsto (fun x => μ (Ici x)) atBot (𝓝 (μ univ)) :=\n   tendsto_measure_Iic_atTop (α := αᵒᵈ) μ\n \n+theorem measure_eq_iSup_inter_Iic (μ : Measure α) (S : Set α) [IsDirectedOrder S]\n+    [(atTop : Filter S).IsCountablyGenerated] :\n+    μ S = ⨆ x ∈ S, μ (S ∩ Iic x) := by\n+  refine le_antisymm ?_ <| iSup₂_le fun _ _ ↦ measure_mono inter_subset_left\n+  rcases isEmpty_or_nonempty S with h | h\n+  · simp [isEmpty_coe_sort.mp h]\n+  have : Tendsto (fun x : S ↦ μ (S ∩ Iic x)) atTop (𝓝 (μ (⋃ x : S, S ∩ Iic x))) :=\n+    tendsto_measure_iUnion_atTop fun _ _ h ↦ inter_subset_inter_right _ <| Iic_subset_Iic.mpr h\n+  rw [le_antisymm (iUnion_subset fun _ ↦ inter_subset_left)\n+    fun x hx ↦ mem_iUnion.mpr ⟨⟨x, hx⟩, hx, le_rfl⟩] at this\n+  exact le_of_tendsto' this (le_biSup (μ <| S ∩ Iic ·) ·.property)\n+\n+-- TODO: generate this using `@[to_dual]` once Monotone <-> Antitone is tagged with `@[to_dual]`\n+@[to_dual existing measure_eq_iSup_inter_Iic]\n+theorem measure_eq_iSup_inter_Ici (μ : Measure α) (S : Set α) [IsCodirectedOrder S]\n+    [(atBot : Filter S).IsCountablyGenerated] :\n+    μ S = ⨆ x ∈ S, μ (S ∩ Ici x) := by\n+  refine le_antisymm ?_ <| iSup₂_le fun _ _ ↦ measure_mono inter_subset_left\n+  rcases isEmpty_or_nonempty S with h | h\n+  · simp [isEmpty_coe_sort.mp h]\n+  have : Tendsto (fun x : S ↦ μ (S ∩ Ici x)) atBot (𝓝 (μ (⋃ x : S, S ∩ Ici x))) :=\n+    tendsto_measure_iUnion_atBot fun _ _ h ↦ inter_subset_inter_right _ <| Ici_subset_Ici.mpr h\n+  rw [le_antisymm (iUnion_subset fun _ ↦ inter_subset_left)\n+    fun x hx ↦ mem_iUnion.mpr ⟨⟨x, hx⟩, hx, le_rfl⟩] at this\n+  exact le_of_tendsto' this (le_biSup (μ <| S ∩ Ici ·) ·.property)\n+\n end Preorder\n \n section PartialOrder\n@@ -93,6 +119,37 @@ theorem Ico_ae_eq_Icc' (hb : μ {b} = 0) : Ico a b =ᵐ[μ] Icc a b :=\n theorem Ico_ae_eq_Ioc' (ha : μ {a} = 0) (hb : μ {b} = 0) : Ico a b =ᵐ[μ] Ioc a b :=\n   (Ioo_ae_eq_Ico' ha).symm.trans (Ioo_ae_eq_Ioc' hb)\n \n+open scoped Pointwise in\n+/-- `μ A + μ B ≤ μ (A * B) + μ singleton` for ordered magma. -/\n+@[to_additive /-- `μ A + μ B ≤ μ (A + B) + μ singleton` for ordered add magma.\n+This is used to prove `Real.volume_add_volume_le` -/]\n+theorem _root_.PartialOrder.measure_add_measure_le_measure_mul_add_iSup [Mul α] [MulLeftMono α]\n+    [MulRightMono α] (hIic : ∀ x : α, MeasurableSet (Iic x))\n+    (hl : ∀ a s, μ s ≤ μ ((a * ·) '' s)) (hr : ∀ b s, μ s ≤ μ ((· * b) '' s))\n+    {A B : Set α} [IsDirectedOrder A] [(atTop : Filter A).IsCountablyGenerated]\n+    [IsCodirectedOrder B] [(atBot : Filter B).IsCountablyGenerated] (hA : A.Nonempty)\n+    (hB : B.Nonempty) :\n+    μ A + μ B ≤ μ (A * B) + ⨆ x ∈ A * B, μ {x} := by\n+  rw [measure_eq_iSup_inter_Iic μ A, measure_eq_iSup_inter_Ici μ B]\n+  refine ENNReal.biSup_add_biSup_le hA hB fun a ha b hb ↦ ?_\n+  calc\n+    _ ≤ μ ((· * b) '' (A ∩ Iic a)) + μ ((a * ·) '' (B ∩ Ici b)) := by\n+      gcongr 1\n+      · apply hr b\n+      · apply hl a\n+    _ ≤ μ (A * B ∩ Iic (a * b)) + μ ((A * B) \\ Iio (a * b)) := by\n+      gcongr\n+      · rintro _ ⟨x, ⟨hx, hxa⟩, rfl⟩\n+        exact ⟨mul_mem_mul hx hb, mul_le_mul_left hxa b⟩\n+      · rintro _ ⟨y, ⟨hy, hyb⟩, rfl⟩\n+        refine ⟨mul_mem_mul ha hy, (mul_le_mul_right hyb a).not_gt⟩\n+    _ ≤ μ (A * B ∩ Iic (a * b)) + μ ((A * B) \\ Iic (a * b)) + μ {a * b} := by\n+      grw [add_assoc, ← measure_union_le _ {a * b}, ← Set.sdiff_sdiff_eq_sdiff_union ?_,\n+        Set.Iic_sdiff_right]\n+      simpa using Set.mul_mem_mul ha hb\n+    _ ≤ _ := by\n+      grw [measure_inter_add_sdiff _ (hIic _), le_biSup (μ {·}) (Set.mul_mem_mul ha hb)]\n+\n end PartialOrder\n \n end MeasureTheory"
+  },
+  {
+   "filename": "Mathlib/MeasureTheory/Measure/Lebesgue/Basic.lean",
+   "status": "modified",
+   "additions": 7,
+   "deletions": 0,
+   "patch": "@@ -439,6 +439,13 @@ theorem map_linearMap_volume_pi_eq_smul_volume_pi {f : (ι → ℝ) →ₗ[ℝ]\n     apply map_matrix_volume_pi_eq_smul_volume_pi\n     rwa [A] at hf\n \n+open scoped Pointwise in\n+/-- One-dimensional **Brunn–Minkowski theorem**. -/\n+theorem volume_add_volume_le {A B : Set ℝ} (hA : A.Nonempty) (hB : B.Nonempty) :\n+    volume A + volume B ≤ volume (A + B) := by\n+  grw [PartialOrder.measure_add_measure_le_measure_add_add_iSup (by simp) (by simp) (by simp) hA hB]\n+  simp\n+\n end Real\n \n section regionBetween"
+  },
+  {
+   "filename": "Mathlib/Topology/Order/Basic.lean",
+   "status": "modified",
+   "additions": 12,
+   "deletions": 4,
+   "patch": "@@ -10,6 +10,8 @@ public import Mathlib.Order.Interval.Set.Pi\n public import Mathlib.Order.OrdContinuous\n public import Mathlib.Topology.Order.OrderClosed\n \n+import Mathlib.Order.Filter.AtTopBot.Map\n+\n /-!\n # Theory of topology on ordered spaces\n \n@@ -704,10 +706,10 @@ theorem countable_image_gt_image_Ioi [LinearOrder β] (f : β → α)\n   countable_image_lt_image_Ioi (α := αᵒᵈ) f\n \n @[to_dual]\n-instance instIsCountablyGenerated_atTop [SeparableSpace α] :\n-    IsCountablyGenerated (atTop : Filter α) := by\n-  obtain (h | ⟨x, hx⟩) := Set.eq_empty_or_nonempty {x : α | IsTop x}\n-  · obtain ⟨s, s_count, hs⟩ := exists_countable_dense α\n+instance instIsCountablyGenerated_atTop_subtype {P : α → Prop} [SeparableSpace (Subtype P)] :\n+    IsCountablyGenerated (atTop : Filter (Subtype P)) := by\n+  obtain (h | ⟨x, hx⟩) := Set.eq_empty_or_nonempty {x : (Subtype P) | IsTop x}\n+  · obtain ⟨s, s_count, hs⟩ := exists_countable_dense (Subtype P)\n     have : atTop = generate (Ici '' s) := by\n       refine atTop_eq_generate_of_not_bddAbove fun ⟨x, hx⟩ ↦ ?_\n       simp only [eq_empty_iff_forall_notMem, IsTop, mem_ofPred_eq, not_forall, not_le] at h\n@@ -718,6 +720,12 @@ instance instIsCountablyGenerated_atTop [SeparableSpace α] :\n   · rw [atTop_eq_pure_of_isTop hx]\n     exact isCountablyGenerated_pure x\n \n+@[to_dual]\n+instance instIsCountablyGenerated_atTop [SeparableSpace α] :\n+    IsCountablyGenerated (atTop : Filter α) := by\n+  rw [← OrderIso.Set.univ.map_atTop]\n+  apply Filter.map.isCountablyGenerated\n+\n end OrderTopology\n \n section Pi"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_comments": null,
+ "checks": null
+}

@@ -1,0 +1,36 @@
+{
+ "number": 43205,
+ "title": "feat(FieldTheory): extension is separable if its degree is less than the positive char",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/43205",
+ "author": "wwylele",
+ "draft": null,
+ "labels": [
+  "t-algebra"
+ ],
+ "body": "",
+ "head_sha": "79a7c94bebadd37a145c11714e4f5ef70e6bc39b",
+ "base_sha": "a02a63c2100af866343c74550041885f8f39f099",
+ "created_at": null,
+ "updated_at": "2026-10-09T19:09:11-04:00",
+ "commits": 8,
+ "files": [
+  {
+   "filename": "Mathlib/Algebra/Polynomial/Derivative.lean",
+   "status": "modified",
+   "additions": 33,
+   "deletions": 14,
+   "patch": "@@ -9,6 +9,7 @@ public import Mathlib.Algebra.Polynomial.Degree.Support\n public import Mathlib.Algebra.Polynomial.Eval.Coeff\n public import Mathlib.GroupTheory.GroupAction.Ring\n \n+import Mathlib.Algebra.GroupWithZero.Action.Regular\n import Mathlib.Algebra.Polynomial.Degree.Domain\n \n /-!\n@@ -395,28 +396,46 @@ theorem derivativeFinsupp_derivative (p : R[X]) :\n   ext i : 1\n   simp\n \n-section IsAddTorsionFree\n-variable [HasUniqueDiv R]\n+theorem mem_support_derivative_of_isSMulRegular (h : IsSMulRegular R (n + 1)) :\n+    n ∈ (derivative p).support ↔ n + 1 ∈ p.support := by\n+  suffices (n + 1) • p.coeff (n + 1) ≠ 0 ↔ p.coeff (n + 1) ≠ 0 by\n+    rw [nsmul_eq_mul, (Nat.cast_commute _ _).eq] at this\n+    simpa [coeff_derivative]\n+  grind [IsSMulRegular.right_eq_zero_of_smul h]\n \n-lemma mem_support_derivative : n ∈ (derivative p).support ↔ n + 1 ∈ p.support := by\n-  suffices ¬p.coeff (n + 1) * (n + 1 : ℕ) = 0 ↔ coeff p (n + 1) ≠ 0 by\n-    simpa only [mem_support_iff, coeff_derivative, Ne, Nat.cast_succ]\n-  rw [← nsmul_eq_mul', smul_eq_zero]\n-  simp only [Nat.succ_ne_zero, false_or]\n-\n-@[simp]\n-lemma degree_derivative (hp : p.natDegree ≠ 0) : degree (derivative p) = ↑(natDegree p - 1) := by\n+theorem degree_derivative_of_isSMulRegular [Nontrivial R] (hp : IsSMulRegular R p.natDegree) :\n+    degree (derivative p) = ↑(natDegree p - 1) := by\n   apply le_antisymm\n   · rw [derivative_apply]\n     apply le_trans (degree_sum_le _ _) (Finset.sup_le _)\n     intro n hn\n     apply le_trans (degree_C_mul_X_pow_le _ _) (WithBot.coe_le_coe.2 (tsub_le_tsub_right _ _))\n     apply le_natDegree_of_mem_supp _ hn\n-  · refine le_sup ?_\n-    rw [mem_support_derivative, tsub_add_cancel_of_le (by lia), mem_support_iff,\n-      coeff_natDegree, leadingCoeff_ne_zero]\n+  · have hp1 : 1 ≤ p.natDegree := by\n+      contrapose hp\n+      simp_all [IsSMulRegular.not_zero]\n+    refine le_sup ?_\n+    rw [mem_support_derivative_of_isSMulRegular (by simpa [tsub_add_cancel_of_le hp1] using hp),\n+      tsub_add_cancel_of_le hp1, mem_support_iff, coeff_natDegree, leadingCoeff_ne_zero]\n     rintro rfl\n-    simp at hp\n+    simp [IsSMulRegular.not_zero] at hp\n+\n+theorem natDegree_derivative_of_isSMulRegular (hp : IsSMulRegular R p.natDegree) :\n+    natDegree (derivative p) = natDegree p - 1 := by\n+  nontriviality R\n+  simp [natDegree, degree_derivative_of_isSMulRegular hp]\n+\n+section IsAddTorsionFree\n+variable [HasUniqueDiv R]\n+\n+lemma mem_support_derivative : n ∈ (derivative p).support ↔ n + 1 ∈ p.support :=\n+  mem_support_derivative_of_isSMulRegular <| IsSMulRegular.of_ne_zero (by simp)\n+\n+@[simp]\n+lemma degree_derivative (hp : p.natDegree ≠ 0) : degree (derivative p) = ↑(natDegree p - 1) := by\n+  rcases subsingleton_or_nontrivial R\n+  · simp [natDegree_of_subsingleton] at hp\n+  exact degree_derivative_of_isSMulRegular <| IsSMulRegular.of_ne_zero hp\n \n @[simp]\n lemma natDegree_derivative (p : R[X]) : p.derivative.natDegree = p.natDegree - 1 := by"
+  },
+  {
+   "filename": "Mathlib/FieldTheory/Separable.lean",
+   "status": "modified",
+   "additions": 37,
+   "deletions": 1,
+   "patch": "@@ -8,6 +8,9 @@ module\n public import Mathlib.FieldTheory.IntermediateField.Basic\n public import Mathlib.RingTheory.PowerBasis\n \n+import Mathlib.Algebra.GroupWithZero.Action.Regular\n+import Mathlib.FieldTheory.Minpoly.Finite\n+\n /-!\n \n # Separable polynomials\n@@ -512,6 +515,13 @@ theorem _root_.Irreducible.separable [CharZero F] {f : F[X]} (hf : Irreducible f\n   · rintro ⟨⟩\n   exact hf.natDegree_pos.ne'\n \n+theorem _root_.Irreducible.separable_of_natCast_natDegree_ne_zero {f : F[X]} (hf : Irreducible f)\n+    (h : (f.natDegree : F) ≠ 0) :\n+    f.Separable := by\n+  have h : IsSMulRegular F f.natDegree := by simp [isSMulRegular_iff_right_eq_zero_of_smul, h]\n+  simp [separable_iff_derivative_ne_zero hf, ← degree_eq_bot.ne,\n+    degree_derivative_of_isSMulRegular h]\n+\n end Field\n \n end Polynomial\n@@ -652,7 +662,31 @@ theorem isSeparable_algebraMap (x : F) : IsSeparable F (algebraMap F K x) :=\n instance Algebra.isSeparable_self : Algebra.IsSeparable F F :=\n   ⟨isSeparable_algebraMap⟩\n \n-variable [IsDomain K] [Algebra.IsIntegral F K] [CharZero F]\n+variable [IsDomain K] [Algebra.IsIntegral F K]\n+\n+theorem IsSeparable.of_integral_of_natCast_natDegree_ne_zero {x : K}\n+    (h : ((minpoly F x).natDegree : F) ≠ 0) : IsSeparable F x :=\n+  (minpoly.irreducible <| Algebra.IsIntegral.isIntegral x).separable_of_natCast_natDegree_ne_zero h\n+\n+theorem Algebra.IsSeparable.of_integral_of_finrank_lt [Module.Finite F K]\n+    (h : Module.finrank F K < ringChar F) :\n+    Algebra.IsSeparable F K := by\n+  rw [isSeparable_def]\n+  intro x\n+  apply IsSeparable.of_integral_of_natCast_natDegree_ne_zero\n+  rw [Ne, ringChar.spec]\n+  apply Nat.not_dvd_of_pos_of_lt (minpoly.natDegree_pos <| IsIntegral.isIntegral x)\n+  exact (minpoly.natDegree_le x).trans_lt h\n+\n+theorem Algebra.IsSeparable.of_integral_of_rank_lt (h : Module.rank F K < ringChar F) :\n+    Algebra.IsSeparable F K := by\n+  have : Module.Finite F K := Module.rank_lt_aleph0_iff.mp (h.trans Cardinal.natCast_lt_aleph0)\n+  apply of_integral_of_finrank_lt\n+  convert! Cardinal.toNat_lt_toNat h Cardinal.natCast_lt_aleph0\n+  rw [Cardinal.toNat_natCast]\n+\n+section CharZero\n+variable [CharZero F]\n \n theorem IsSeparable.of_integral (x : K) : IsSeparable F x :=\n   (minpoly.irreducible <| Algebra.IsIntegral.isIntegral x).separable\n@@ -663,6 +697,8 @@ variable (K) in\n protected instance (priority := 100) Algebra.IsSeparable.of_integral : Algebra.IsSeparable F K :=\n   ⟨_root_.IsSeparable.of_integral _⟩\n \n+end CharZero\n+\n end IsIntegral\n \n section"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_comments": null,
+ "checks": null
+}

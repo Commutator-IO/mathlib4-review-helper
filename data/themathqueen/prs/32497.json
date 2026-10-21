@@ -1,0 +1,38 @@
+{
+ "number": 32497,
+ "title": "chore: make `FiniteDimensional.complete 𝕜` an instance when `𝕜` is `RCLike`",
+ "url": "https://github.com/leanprover-community/mathlib4/pull/32497",
+ "author": "themathqueen",
+ "draft": null,
+ "labels": [
+  "awaiting-bench",
+  "merge-conflict",
+  "t-analysis"
+ ],
+ "body": "",
+ "head_sha": "a12292e9fc91909d766f03d686e775e981fec279",
+ "base_sha": "9fdb8ee77b475fa2352966d6628450d96f0d4270",
+ "created_at": null,
+ "updated_at": "2025-12-23T02:05:24+00:00",
+ "commits": 3,
+ "files": [
+  {
+   "filename": "Mathlib/Analysis/InnerProductSpace/Adjoint.lean",
+   "status": "modified",
+   "additions": 3,
+   "deletions": 24,
+   "patch": "@@ -191,12 +191,14 @@ theorem orthogonal_range (T : E →L[𝕜] F) :\n   rw [← (LinearMap.ker (T†)).orthogonal_orthogonal, (T†).orthogonal_ker]\n   simp\n \n+instance _root_.InnerProductSpace.completeSpaceOfFiniteDimensional [FiniteDimensional 𝕜 E] :\n+    CompleteSpace E := FiniteDimensional.complete 𝕜 E\n+\n omit [CompleteSpace E] in\n theorem ker_le_ker_iff_range_le_range [FiniteDimensional 𝕜 E] {T U : E →L[𝕜] E}\n     (hT : T.IsSymmetric) (hU : U.IsSymmetric) :\n     LinearMap.ker U ≤ LinearMap.ker T ↔ LinearMap.range T ≤ LinearMap.range U := by\n   refine ⟨fun h ↦ ?_, LinearMap.ker_le_ker_of_range hT hU⟩\n-  have := FiniteDimensional.complete 𝕜 E\n   simpa [orthogonal_ker, hT, hU] using Submodule.orthogonal_le h\n \n /-- `E →L[𝕜] E` is a star algebra with the adjoint as the star operation. -/\n@@ -457,44 +459,25 @@ variable [FiniteDimensional 𝕜 E] [FiniteDimensional 𝕜 F] [FiniteDimensiona\n /-- The adjoint of an operator from the finite-dimensional inner product space `E` to the\n finite-dimensional inner product space `F`. -/\n def adjoint : (E →ₗ[𝕜] F) ≃ₗ⋆[𝕜] F →ₗ[𝕜] E :=\n-  haveI := FiniteDimensional.complete 𝕜 E\n-  haveI := FiniteDimensional.complete 𝕜 F\n-  /- Note: Instead of the two instances above, the following works:\n-    ```\n-      haveI := FiniteDimensional.complete 𝕜\n-      haveI := FiniteDimensional.complete 𝕜\n-    ```\n-    But removing one of the `have`s makes it fail. The reason is that `E` and `F` don't live\n-    in the same universe, so the first `have` can no longer be used for `F` after its universe\n-    metavariable has been assigned to that of `E`!\n-  -/\n   ((LinearMap.toContinuousLinearMap : (E →ₗ[𝕜] F) ≃ₗ[𝕜] E →L[𝕜] F).trans\n       ContinuousLinearMap.adjoint.toLinearEquiv).trans\n     LinearMap.toContinuousLinearMap.symm\n \n theorem adjoint_toContinuousLinearMap (A : E →ₗ[𝕜] F) :\n-    haveI := FiniteDimensional.complete 𝕜 E\n-    haveI := FiniteDimensional.complete 𝕜 F\n     A.adjoint.toContinuousLinearMap = A.toContinuousLinearMap.adjoint :=\n   rfl\n \n theorem adjoint_eq_toCLM_adjoint (A : E →ₗ[𝕜] F) :\n-    haveI := FiniteDimensional.complete 𝕜 E\n-    haveI := FiniteDimensional.complete 𝕜 F\n     A.adjoint = A.toContinuousLinearMap.adjoint :=\n   rfl\n \n /-- The fundamental property of the adjoint. -/\n theorem adjoint_inner_left (A : E →ₗ[𝕜] F) (x : E) (y : F) : ⟪adjoint A y, x⟫ = ⟪y, A x⟫ := by\n-  have := FiniteDimensional.complete 𝕜 E\n-  have := FiniteDimensional.complete 𝕜 F\n   rw [← coe_toContinuousLinearMap A, adjoint_eq_toCLM_adjoint]\n   exact ContinuousLinearMap.adjoint_inner_left _ x y\n \n /-- The fundamental property of the adjoint. -/\n theorem adjoint_inner_right (A : E →ₗ[𝕜] F) (x : E) (y : F) : ⟪x, adjoint A y⟫ = ⟪A x, y⟫ := by\n-  have := FiniteDimensional.complete 𝕜 E\n-  have := FiniteDimensional.complete 𝕜 F\n   rw [← coe_toContinuousLinearMap A, adjoint_eq_toCLM_adjoint]\n   exact ContinuousLinearMap.adjoint_inner_right _ x y\n \n@@ -602,13 +585,11 @@ theorem im_inner_adjoint_mul_self_eq_zero (T : E →ₗ[𝕜] E) (x : E) :\n   norm_cast\n \n theorem isSelfAdjoint_toContinuousLinearMap_iff (T : E →ₗ[𝕜] E) :\n-    have := FiniteDimensional.complete 𝕜 E\n     IsSelfAdjoint T.toContinuousLinearMap ↔ IsSelfAdjoint T := by\n   simp [IsSelfAdjoint, star, adjoint,\n     ContinuousLinearMap.toLinearMap_eq_iff_eq_toContinuousLinearMap]\n \n theorem _root_.ContinuousLinearMap.isSelfAdjoint_toLinearMap_iff (T : E →L[𝕜] E) :\n-    have := FiniteDimensional.complete 𝕜 E\n     IsSelfAdjoint T.toLinearMap ↔ IsSelfAdjoint T := by\n   simp only [IsSelfAdjoint, star, adjoint, LinearEquiv.trans_apply,\n     coe_toContinuousLinearMap_symm,\n@@ -616,7 +597,6 @@ theorem _root_.ContinuousLinearMap.isSelfAdjoint_toLinearMap_iff (T : E →L[\n   rfl\n \n theorem isStarProjection_toContinuousLinearMap_iff {T : E →ₗ[𝕜] E} :\n-    have := FiniteDimensional.complete 𝕜 E\n     IsStarProjection (toContinuousLinearMap T) ↔ IsStarProjection T := by\n   simp [isStarProjection_iff, isSelfAdjoint_toContinuousLinearMap_iff,\n     ← ContinuousLinearMap.isIdempotentElem_toLinearMap_iff]\n@@ -631,7 +611,6 @@ open LinearMap in\n theorem IsStarProjection.ext_iff {S T : E →ₗ[𝕜] E}\n     (hS : IsStarProjection S) (hT : IsStarProjection T) :\n     S = T ↔ LinearMap.range S = LinearMap.range T := by\n-  have := FiniteDimensional.complete 𝕜 E\n   simpa using ContinuousLinearMap.IsStarProjection.ext_iff\n     (S.isStarProjection_toContinuousLinearMap_iff.mpr hS)\n     (T.isStarProjection_toContinuousLinearMap_iff.mpr hT)"
+  },
+  {
+   "filename": "Mathlib/Analysis/InnerProductSpace/Positive.lean",
+   "status": "modified",
+   "additions": 0,
+   "deletions": 2,
+   "patch": "@@ -367,8 +367,6 @@ variable [FiniteDimensional 𝕜 E] [FiniteDimensional 𝕜 F]\n @[aesop safe apply]\n theorem _root_.LinearMap.IsPositive.conj_adjoint {T : E →ₗ[𝕜] E}\n     (hT : T.IsPositive) (S : E →ₗ[𝕜] F) : (S ∘ₗ T ∘ₗ S.adjoint).IsPositive := by\n-  have := FiniteDimensional.complete 𝕜 E\n-  have := FiniteDimensional.complete 𝕜 F\n   simpa [← isPositive_toContinuousLinearMap_iff] using\n     ((T.isPositive_toContinuousLinearMap_iff.mpr hT).conj_adjoint S.toContinuousLinearMap)"
+  }
+ ],
+ "reviews": null,
+ "comments": null,
+ "review_comments": null,
+ "checks": null
+}

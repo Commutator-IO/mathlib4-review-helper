@@ -66,11 +66,20 @@ theorem, a notably long or fragile proof, a lemma probably already in mathlib
 - A declaration whose statement is unchanged but whose proof or docstring
   changed still gets a short section: "Statement unchanged: …", then what
   changed. A removed declaration gets one line saying what replaces it.
-- A PR stacked on another one (its diff includes the other PR's changes, often
-  labelled `blocked-by-other-PR` and saying so in its description): put
-  `stacked-on: <number>` in the front matter and write sections only for the
-  declarations the lower PR does not have. The site borrows the rest from the
-  lower PR's notes.
+- A PR stacked on others (its diff includes their changes, often labelled
+  `blocked-by-other-PR` and saying so in its description): put
+  `stacked-on: <number> [<number>…]` in the front matter (the PRs directly
+  below it) and write sections only for the declarations those PRs do not
+  have. The site borrows the rest from their notes, following chains.
+- A refactor touching many declarations the same mechanical way (a rename,
+  a generalisation, a namespace move, an added `@[fun_prop]`): write ONE
+  section headed `## *` describing the change and what to check for it; the
+  site shows it beside every declaration without a section of its own. Then
+  write specific sections only for the declarations whose change is not
+  mechanical (a new statement, a proof that changed in substance, a lemma
+  removed or merged).
+- A long PR (dozens of new declarations): keep each section to the statement
+  and a one-line **Proof.**; spend the words on the main results.
 - Notes written for an older head (`notes written for <sha>` in the diff):
   re-read every section against the current code, fix what changed, delete
   sections of declarations that are gone, and set `head:` to the new sha.
