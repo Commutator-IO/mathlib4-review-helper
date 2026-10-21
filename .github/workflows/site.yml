@@ -33,6 +33,12 @@ jobs:
       - run: npm ci
       - run: npm test
 
+      # Before the fetch, which can spend the token's API quota.
+      - uses: actions/configure-pages@v6
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        with:
+          enablement: true
+
       # The workflow token reads public repositories, with a rate limit far
       # above the ~200 requests a refresh costs. If the API is down the
       # committed snapshot in data/ is published instead, with a warning.
@@ -43,11 +49,6 @@ jobs:
 
       - name: Build
         run: npm run build
-
-      - uses: actions/configure-pages@v6
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        with:
-          enablement: true
 
       - uses: actions/upload-pages-artifact@v5
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
