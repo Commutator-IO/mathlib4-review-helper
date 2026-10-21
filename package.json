@@ -2,6 +2,7 @@
   "name": "mathlib4-review-helper",
   "private": true,
   "version": "0.0.0",
+  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "fetch": "node scripts/fetch.mjs",
