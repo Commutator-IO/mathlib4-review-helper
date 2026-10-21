@@ -69,7 +69,8 @@ function chips(a) {
     if (st === 'APPROVED') out.push(`<span class="chip good">✓ ${esc(who)}</span>`);
     if (st === 'CHANGES_REQUESTED') out.push(`<span class="chip warn">✗ ${esc(who)}</span>`);
   }
-  for (const w of b.why) if (!out.some((o) => o.includes(`>${w}<`))) out.push(`<span class="chip warn">${esc(w)}</span>`);
+  // The reasons not already shown by a label (a blocked PR carries its label).
+  if (b.id !== 'blocked') for (const w of b.why) if (!out.some((o) => o.includes(`>${w}<`))) out.push(`<span class="chip warn">${esc(w)}</span>`);
   return out.join(' ');
 }
 

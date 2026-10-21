@@ -208,3 +208,8 @@ dialog .row button[value='close'] { margin-left: auto; }
 .decl > * { min-width: 0; }
 @media (max-width: 600px) { .who { display: none; } .top { position: static; } .decl-side { position: static; } }
 .cards.authors .meta { margin-left: 0; }
+.toc li, .toc code { word-break: break-word; overflow-wrap: anywhere; }
+.toc ol { columns: 2 300px; }
+/* Inline code in prose and hunk headers carries long identifiers. */
+.overview code, .box code, .hunk-head code, .note code, .decl-title code { overflow-wrap: anywhere; word-break: break-word; }
+.hunk-head { overflow-wrap: anywhere; }
